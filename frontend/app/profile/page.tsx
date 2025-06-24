@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
+import { FaTwitter } from 'react-icons/fa'
 
 interface ProfileData {
   firstName: string;
@@ -11,18 +12,23 @@ interface ProfileData {
   email: string;
   address: string;
   lastLogin?: Date;
+  twitterConnected: boolean;
+  twitterUsername?: string;
 }
 
 export default function ProfilePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { isConnected } = useAccount()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [disconnectingTwitter, setDisconnectingTwitter] = useState(false)
   const [profileData, setProfileData] = useState<ProfileData>({
     firstName: '',
     lastName: '',
     email: '',
-    address: ''
+    address: '',
+    twitterConnected: false
   })
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -31,6 +37,20 @@ export default function ProfilePage() {
     lastName: '',
     email: ''
   })
+
+  // Get success/error messages from URL parameters
+  useEffect(() => {
+    const urlError = searchParams.get('error')
+    const urlSuccess = searchParams.get('success')
+    
+    if (urlError) {
+      setError(urlError)
+    }
+    
+    if (urlSuccess) {
+      setSuccess(urlSuccess)
+    }
+  }, [searchParams])
 
   // Load profile data
   useEffect(() => {
@@ -53,7 +73,9 @@ export default function ProfilePage() {
           lastName: data.lastName || '',
           email: data.email || '',
           address: data.address || '',
-          lastLogin: data.lastLogin
+          lastLogin: data.lastLogin,
+          twitterConnected: !!data.twitterId,
+          twitterUsername: data.twitterUsername
         })
         setLoading(false)
       })
@@ -63,6 +85,55 @@ export default function ProfilePage() {
         setLoading(false)
       })
   }, [isConnected, router])
+
+  // Connect Twitter account
+  const handleConnectTwitter = async () => {
+    try {
+      const res = await fetch('/api/twitter/auth')
+      
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.message || 'Failed to initiate Twitter authentication')
+      }
+      
+      const { authUrl } = await res.json()
+      
+      // Redirect to Twitter auth page
+      window.location.href = authUrl
+    } catch (err: any) {
+      console.error('Error connecting Twitter:', err)
+      setError(err.message || 'Failed to connect Twitter account')
+    }
+  }
+  
+  // Disconnect Twitter account
+  const handleDisconnectTwitter = async () => {
+    setDisconnectingTwitter(true)
+    try {
+      const res = await fetch('/api/twitter/disconnect', {
+        method: 'POST'
+      })
+      
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.message || 'Failed to disconnect Twitter account')
+      }
+      
+      // Update profile data
+      setProfileData(prev => ({
+        ...prev,
+        twitterConnected: false,
+        twitterUsername: undefined
+      }))
+      
+      setSuccess('Twitter account disconnected successfully')
+    } catch (err: any) {
+      console.error('Error disconnecting Twitter:', err)
+      setError(err.message || 'Failed to disconnect Twitter account')
+    } finally {
+      setDisconnectingTwitter(false)
+    }
+  }
 
   // Validate form before submission
   const validateForm = () => {
@@ -126,10 +197,10 @@ export default function ProfilePage() {
       }
       
       const updatedData = await response.json()
-      setProfileData({
-        ...profileData,
+      setProfileData(prev => ({
+        ...prev,
         ...updatedData
-      })
+      }))
       setSuccess('Profile updated successfully!')
     } catch (err: any) {
       console.error('Error updating profile:', err)
@@ -171,7 +242,7 @@ export default function ProfilePage() {
           </Link>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
           {error && (
             <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
               {error}
@@ -214,7 +285,9 @@ export default function ProfilePage() {
                   className={`w-full px-3 py-2 border ${errors.firstName ? 'border-red-500' : 'border-gray-300'} rounded focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   placeholder="Enter your first name"
                 />
-                {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
+                {errors.firstName && (
+                  <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>
+                )}
               </div>
               
               <div>
@@ -227,7 +300,7 @@ export default function ProfilePage() {
                   type="text"
                   value={profileData.lastName}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border ${errors.lastName ? 'border-red-500' : 'border-gray-300'} rounded focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   placeholder="Enter your last name"
                 />
                 {errors.lastName && (
@@ -246,7 +319,7 @@ export default function ProfilePage() {
                 type="email"
                 value={profileData.email}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded focus:outline-none focus:ring-2 focus:ring-blue-500`}
                 placeholder="Enter your email address"
               />
               {errors.email && (
@@ -264,6 +337,55 @@ export default function ProfilePage() {
               </button>
             </div>
           </form>
+        </div>
+        
+        {/* Social accounts section */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold mb-4">Connected Social Accounts</h2>
+          <div className="border-b pb-4 mb-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center">
+                <FaTwitter className="text-blue-400 text-xl mr-3" />
+                <div>
+                  <p className="font-medium">Twitter</p>
+                  {profileData.twitterConnected ? (
+                    <p className="text-sm text-gray-600">
+                      Connected as @{profileData.twitterUsername}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-500">Not connected</p>
+                  )}
+                </div>
+              </div>
+              
+              {profileData.twitterConnected ? (
+                <button
+                  onClick={handleDisconnectTwitter}
+                  disabled={disconnectingTwitter}
+                  className="px-3 py-1 border border-red-500 text-red-500 rounded hover:bg-red-50 text-sm disabled:opacity-50"
+                >
+                  {disconnectingTwitter ? 'Disconnecting...' : 'Disconnect'}
+                </button>
+              ) : (
+                <button
+                  onClick={handleConnectTwitter}
+                  className="px-3 py-1 bg-blue-400 text-white rounded hover:bg-blue-500 text-sm flex items-center"
+                >
+                  <FaTwitter className="mr-1" /> Connect Twitter
+                </button>
+              )}
+            </div>
+          </div>
+          
+          <div className="text-sm text-gray-600">
+            <p className="mb-2">
+              <strong>Why connect your accounts?</strong>
+            </p>
+            <p>
+              Connecting your social media accounts allows us to automatically verify when you complete social tasks.
+              This means you can earn points instantly without manual verification.
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -28,7 +28,29 @@ const UserSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
     default: Date.now
-  }
+  },
+  totalPoints: {
+    type: Number,
+    default: 0
+  },
+  createdEvents: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Event'
+  }],
+  joinedEvents: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Event'
+  }],
+  
+  // Twitter auth data
+  twitterId: {
+    type: String,
+    sparse: true
+  },
+  twitterUsername: String,
+  twitterTokenKey: String,
+  twitterTokenSecret: String,
+  
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

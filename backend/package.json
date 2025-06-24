@@ -20,7 +20,8 @@
     "ethers": "^6.14.4",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.16.0"
+    "mongoose": "^8.16.0",
+    "twitter-api-v2": "^1.23.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

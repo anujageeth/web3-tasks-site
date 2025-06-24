@@ -41,6 +41,9 @@ mongoose.connect(process.env.MONGODB_URI)
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/profile', require('./routes/profile'));
+app.use('/api/events', require('./routes/events'));
+app.use('/api/tasks', require('./routes/tasks'));
+app.use('/api/twitter', require('./routes/twitter'));
 
 // Test route
 app.get('/api/test', (req, res) => {
