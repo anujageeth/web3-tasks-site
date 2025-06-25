@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     id: string;
-  }
+  }>
 }
 
 export async function POST(
@@ -12,8 +12,8 @@ export async function POST(
   { params }: RouteContext
 ) {
   try {
-    const { id } = params;
-    const cookieStore = cookies();
+    const { id } = await params; // Await the params Promise
+    const cookieStore = await cookies(); // Also await cookies() in Next.js 15
     const token = cookieStore.get('token')?.value;
     
     if (!token) {
