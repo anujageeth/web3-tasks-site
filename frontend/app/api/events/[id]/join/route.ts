@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-// Fix: Use context object pattern for params
+interface RouteContext {
+  params: {
+    id: string;
+  }
+}
+
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
-    const { id } = context.params;
+    const { id } = params;
     const cookieStore = cookies();
     const token = cookieStore.get('token')?.value;
     
