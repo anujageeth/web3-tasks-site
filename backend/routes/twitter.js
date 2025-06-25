@@ -244,6 +244,8 @@ router.post('/verify-task', auth, async (req, res) => {
   try {
     const { taskId, taskType, linkUrl } = req.body;
     
+    console.log('Verifying Twitter task:', { taskId, taskType, userId: req.user._id });
+    
     // Check if user has Twitter connected
     if (!req.user.twitterId || !req.user.twitterTokenKey || !req.user.twitterTokenSecret) {
       return res.status(400).json({ 
@@ -263,6 +265,21 @@ router.post('/verify-task', auth, async (req, res) => {
     if (task.platform !== 'twitter') {
       return res.status(400).json({ message: 'This is not a Twitter task' });
     }
+
+    // Find the event to check if user has joined
+    const eventJoin = await Event.findById(task.event);
+    if (!eventJoin || !event.isActive) {
+      return res.status(400).json({ message: 'This event is no longer active' });
+    }
+    
+    // Check if user has joined this event
+    const isParticipant = event.participants.some(
+      p => p.user.toString() === req.user._id.toString()
+    );
+    
+    if (!isParticipant) {
+      return res.status(400).json({ message: 'You have not joined this event' });
+    }
     
     // Check if task is already completed
     const userTask = await UserTask.findOne({ user: req.user._id, task: taskId });
@@ -274,21 +291,17 @@ router.post('/verify-task', auth, async (req, res) => {
     if (userTask.completed) {
       return res.status(400).json({ message: 'Task already completed' });
     }
+
+    // Find the event to ensure it's active
+    const event = await Event.findById(task.event);
+    if (!event || !event.isActive) {
+      return res.status(400).json({ message: 'This event is no longer active' });
+    }
     
     // Parse Twitter content ID from URL
     let contentId;
     try {
-      // Extract username and tweet ID from URL patterns like:
-      // https://twitter.com/username/status/1234567890
-      // https://x.com/username/status/1234567890
-      const urlMatch = linkUrl.match(/(?:twitter\.com|x\.com)\/(.+?)\/status\/(\d+)/);
-      
-      if (!urlMatch) {
-        throw new Error('Could not parse Twitter URL');
-      }
-      
-      const username = urlMatch[1];
-      contentId = urlMatch[2]; // Tweet ID
+      console.log('Parsing Twitter URL:', linkUrl);
       
       // Create a user-specific Twitter client
       const userTwitterClient = new TwitterAPI({
@@ -307,38 +320,97 @@ router.post('/verify-task', auth, async (req, res) => {
           // https://twitter.com/username
           // https://x.com/username
           const followUrlMatch = linkUrl.match(/(?:twitter\.com|x\.com)\/([^\/]+)$/);
-          const followUsername = followUrlMatch ? followUrlMatch[1] : username;
           
-          // Check if user follows the account
-          const followingResponse = await userTwitterClient.v2.following(req.user.twitterId, {
-            max_results: 100 // Adjust as needed
-          });
+          if (!followUrlMatch) {
+            // Try to extract from status URL
+            const statusUrlMatch = linkUrl.match(/(?:twitter\.com|x\.com)\/([^\/]+)\/status/);
+            if (!statusUrlMatch) {
+              throw new Error('Could not parse Twitter username from URL');
+            }
+            var followUsername = statusUrlMatch[1];
+          } else {
+            var followUsername = followUrlMatch[1];
+          }
           
-          // Look for the username in the following list
-          verified = followingResponse.data.some(u => 
-            u.username.toLowerCase() === followUsername.toLowerCase()
-          );
+          console.log('Checking if user follows:', followUsername);
+          
+          try {
+            // First find the user ID for the username
+            const userLookup = await userTwitterClient.v2.userByUsername(followUsername);
+            if (!userLookup.data) {
+              throw new Error('Twitter user not found');
+            }
+            
+            const targetUserId = userLookup.data.id;
+            
+            // Check if user follows this account
+            const friendship = await userTwitterClient.v2.friendship(req.user.twitterId, targetUserId);
+            verified = friendship.data.following;
+            
+            console.log('Follow verification result:', { targetUser: followUsername, following: verified });
+            
+          } catch (lookupError) {
+            console.error('Error during follow verification:', lookupError);
+            throw new Error('Could not verify follow status');
+          }
           break;
           
         case 'like':
-          // Check if user liked the tweet
-          const likedTweets = await userTwitterClient.v2.likedTweets(req.user.twitterId, {
-            max_results: 100 // Adjust as needed
-          });
+          // Extract tweet ID from URL
+          const likeUrlMatch = linkUrl.match(/(?:twitter\.com|x\.com)\/[^\/]+\/status\/(\d+)/);
+          if (!likeUrlMatch) {
+            throw new Error('Could not parse tweet ID from URL');
+          }
           
-          verified = likedTweets.data.some(tweet => tweet.id === contentId);
+          const tweetId = likeUrlMatch[1];
+          console.log('Checking if user liked tweet:', tweetId);
+          
+          try {
+            // Check if this tweet is in user's liked tweets
+            const likedTweets = await userTwitterClient.v2.likedTweets(req.user.twitterId, {
+              max_results: 50 // Get most recent likes
+            });
+            
+            verified = likedTweets.data.some(tweet => tweet.id === tweetId);
+            console.log('Like verification result:', { tweetId, liked: verified });
+            
+          } catch (likeError) {
+            console.error('Error during like verification:', likeError);
+            throw new Error('Could not verify like status');
+          }
           break;
           
         case 'repost':
-          // Check for retweets
-          const userTweets = await userTwitterClient.v2.userTimeline(req.user.twitterId, {
-            max_results: 100 // Adjust as needed
-          });
+          // Extract tweet ID from URL
+          const retweetUrlMatch = linkUrl.match(/(?:twitter\.com|x\.com)\/[^\/]+\/status\/(\d+)/);
+          if (!retweetUrlMatch) {
+            throw new Error('Could not parse tweet ID from URL');
+          }
           
-          verified = userTweets.data.some(tweet => 
-            tweet.referenced_tweets && 
-            tweet.referenced_tweets.some(rt => rt.type === 'retweeted' && rt.id === contentId)
-          );
+          const originalTweetId = retweetUrlMatch[1];
+          console.log('Checking if user retweeted tweet:', originalTweetId);
+          
+          try {
+            // Check user's recent tweets for retweets
+            const userTweets = await userTwitterClient.v2.userTimeline(req.user.twitterId, {
+              max_results: 50, // Get most recent tweets
+              "tweet.fields": "referenced_tweets"
+            });
+            
+            // Find if any tweet is a retweet of the target tweet
+            verified = userTweets.data.some(tweet => 
+              tweet.referenced_tweets && 
+              tweet.referenced_tweets.some(ref => 
+                ref.type === 'retweeted' && ref.id === originalTweetId
+              )
+            );
+            
+            console.log('Retweet verification result:', { originalTweetId, retweeted: verified });
+            
+          } catch (retweetError) {
+            console.error('Error during retweet verification:', retweetError);
+            throw new Error('Could not verify retweet status');
+          }
           break;
           
         default:
@@ -352,6 +424,8 @@ router.post('/verify-task', auth, async (req, res) => {
         userTask.pointsEarned = task.pointsValue;
         userTask.verificationData = { method: 'twitter_api', timestamp: Date.now() };
         await userTask.save();
+        
+        console.log('Task marked as completed:', { taskId, points: task.pointsValue });
         
         // Update user's total points
         await User.findByIdAndUpdate(req.user._id, {
@@ -382,7 +456,7 @@ router.post('/verify-task', auth, async (req, res) => {
     } catch (error) {
       console.error('Twitter content verification error:', error);
       return res.status(400).json({ 
-        message: 'Could not verify task. Please check the URL and try again.' 
+        message: `Could not verify task: ${error.message}` 
       });
     }
     

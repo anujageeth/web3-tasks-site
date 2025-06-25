@@ -70,6 +70,7 @@ export default function EventDetailPage() {
   const [completingTask, setCompletingTask] = useState<string | null>(null)
   const [taskMessage, setTaskMessage] = useState<{id: string, message: string, type: 'success' | 'error'} | null>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
+  const [clickedTasks, setClickedTasks] = useState<{[key: string]: boolean}>({})
   
   useEffect(() => {
     if (!isConnected) {
@@ -150,36 +151,61 @@ export default function EventDetailPage() {
     }
   }
   
+  // Update the Twitter task verification function
+
   // Add this function to handle Twitter task verification
   const handleTwitterTaskVerification = async (taskId: string, taskType: string, linkUrl: string) => {
     setCompletingTask(taskId)
     setTaskMessage(null)
     
     try {
+      // Pre-verification check - ensure Twitter is connected
+      if (!userProfile?.twitterId) {
+        setTaskMessage({
+          id: taskId,
+          message: 'This task requires a connected Twitter account. Go to your profile to connect Twitter.',
+          type: 'error'
+        });
+        setCompletingTask(null);
+        return;
+      }
+      
+      // Check if the task was clicked at least once
+      if (!clickedTasks[taskId]) {
+        setTaskMessage({
+          id: taskId,
+          message: `Please click the ${
+            taskType === 'follow' ? 'Follow Account' : 
+            taskType === 'like' ? 'Like Tweet' : 
+            'Retweet Post'
+          } button first.`,
+          type: 'error'
+        });
+        setCompletingTask(null);
+        return;
+      }
+      
+      console.log('Sending verification request for task:', { taskId, taskType, linkUrl });
+      
+      // Proceed with verification
       const res = await fetch('/api/twitter/verify-task', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ taskId, taskType, linkUrl })
-      })
+      });
       
-      const data = await res.json()
+      console.log('Verification response status:', res.status);
+      
+      const data = await res.json();
       
       if (!res.ok) {
-        // Check if Twitter connection is required
-        if (data.twitterRequired) {
-          // Ask user to connect Twitter account
-          setTaskMessage({
-            id: taskId,
-            message: 'This task requires a connected Twitter account. Go to your profile to connect Twitter.',
-            type: 'error'
-          })
-        } else {
-          throw new Error(data.message || 'Failed to verify task')
-        }
-        return
+        console.error('Verification error:', data);
+        throw new Error(data.message || 'Failed to verify task');
       }
+      
+      console.log('Verification success:', data);
       
       // Show success message
       setTaskMessage({
@@ -262,6 +288,19 @@ export default function EventDetailPage() {
       })
       .catch(err => console.error('Error loading user profile:', err));
   }, []);
+  
+  const handleOpenTask = (taskId: string, linkUrl: string) => {
+    // Open the URL in a new tab
+    window.open(linkUrl, '_blank');
+    
+    // Mark this task as clicked
+    setClickedTasks(prev => ({
+      ...prev,
+      [taskId]: true
+    }));
+    
+    console.log(`Task ${taskId} opened and marked as clicked`);
+  };
   
   if (loading) {
     return (
@@ -491,6 +530,7 @@ export default function EventDetailPage() {
                   const userTask = userTasks.find(ut => ut.task._id === task._id)
                   const isCompleted = userTask?.completed || false
                   const isCurrentTaskMessage = taskMessage && taskMessage.id === task._id
+                  const hasClickedTask = clickedTasks[task._id] || false;
                   
                   return (
                     <div 
@@ -533,14 +573,18 @@ export default function EventDetailPage() {
                             
                             <h3 className="font-medium text-white mb-1">{task.description}</h3>
                             
-                            <a 
-                              href={task.linkUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-400 hover:text-blue-300 text-sm inline-flex items-center gap-1"
+                            {/* Replace the old link with a proper button */}
+                            <motion.button
+                              onClick={() => handleOpenTask(task._id, task.linkUrl)}
+                              className="text-sm font-medium glass-button bg-gradient-to-r from-blue-400/30 to-blue-600/30 text-blue-300 border-blue-400/30 inline-flex items-center px-3 py-1 rounded-full hover:from-blue-400/40 hover:to-blue-600/40"
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.97 }}
                             >
-                              Open Link <FiExternalLink size={12} />
-                            </a>
+                              {task.taskType === 'follow' ? 'Follow Account' : 
+                               task.taskType === 'like' ? 'Like Tweet' :
+                               task.taskType === 'repost' ? 'Retweet Post' : 'Complete Task'} 
+                              <FiExternalLink className="ml-1" size={14} />
+                            </motion.button>
                             
                             {isCurrentTaskMessage && (
                               <div className={`mt-3 text-sm px-3 py-2 rounded-lg ${
@@ -567,14 +611,14 @@ export default function EventDetailPage() {
                           {hasJoined && !isCreator && !isCompleted && (
                             <motion.button
                               onClick={() => handleCompleteTask(task, task._id)}
-                              disabled={completingTask === task._id || !isEventActive}
+                              disabled={completingTask === task._id || !isEventActive || (task.platform === 'twitter' && !hasClickedTask)}
                               className={`block ml-auto mt-2 py-1 px-3 rounded-full text-sm ${
-                                isEventActive
-                                  ? 'glass-button disabled:opacity-70'
+                                isEventActive && (task.platform !== 'twitter' || hasClickedTask)
+                                  ? 'glass-button bg-gradient-to-r from-green-400/30 to-green-600/30 text-green-300 border-green-400/30 disabled:opacity-70'
                                   : 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
                               }`}
-                              whileHover={isEventActive ? { scale: 1.05 } : {}}
-                              whileTap={isEventActive ? { scale: 0.95 } : {}}
+                              whileHover={isEventActive && (task.platform !== 'twitter' || hasClickedTask) ? { scale: 1.05 } : {}}
+                              whileTap={isEventActive && (task.platform !== 'twitter' || hasClickedTask) ? { scale: 0.95 } : {}}
                             >
                               {completingTask === task._id ? 'Verifying...' : 'Verify'}
                             </motion.button>
@@ -688,6 +732,8 @@ function getPlatformIcon(platform: string) {
   }
 }
 
+// Update the getTwitterTaskMessage function
+
 function getTwitterTaskMessage(task: Task, userHasTwitterConnected: boolean) {
   if (task.platform !== 'twitter') return null;
   
@@ -714,7 +760,9 @@ function getTwitterTaskMessage(task: Task, userHasTwitterConnected: boolean) {
   return (
     <div className="mt-2 text-xs bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
       <p className="text-blue-400">
-        <span className="font-medium">{actionText}</span> and click "Verify" to automatically confirm completion.
+        <span className="font-medium">1. {actionText}</span> by clicking the button above
+        <br />
+        <span className="font-medium">2. Click "Verify"</span> to automatically confirm completion
       </p>
     </div>
   );
