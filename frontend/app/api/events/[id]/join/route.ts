@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-// Fix the type signature here - the second parameter should use proper typing
+// Fix: Use context object pattern for params
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { id } = context.params;
     const cookieStore = cookies();
     const token = cookieStore.get('token')?.value;
     
@@ -16,7 +17,7 @@ export async function POST(
     
     // Forward to backend
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
-    const response = await fetch(`${backendUrl}/api/events/${params.id}/join`, {
+    const response = await fetch(`${backendUrl}/api/events/${id}/join`, {
       method: 'POST',
       headers: {
         'Cookie': `token=${token}`,
