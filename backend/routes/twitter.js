@@ -5,17 +5,70 @@ const User = require('../models/User');
 const Task = require('../models/Task');
 const UserTask = require('../models/UserTask');
 const TwitterAPI = require('twitter-api-v2').TwitterApi;
+const OAuth = require('oauth-1.0a');
+const crypto = require('crypto');
 
-// Twitter OAuth 1.0a setup
+// Log Twitter API configuration at startup
+console.log('Twitter API configuration:', {
+  apiKeyFirstChars: process.env.TWITTER_API_KEY ? process.env.TWITTER_API_KEY.substring(0, 4) + '...' : 'MISSING',
+  apiSecretLength: process.env.TWITTER_API_SECRET ? process.env.TWITTER_API_SECRET.length : 0,
+  accessTokenFirstChars: process.env.TWITTER_ACCESS_TOKEN ? process.env.TWITTER_ACCESS_TOKEN.substring(0, 4) + '...' : 'MISSING',
+  accessSecretLength: process.env.TWITTER_ACCESS_SECRET ? process.env.TWITTER_ACCESS_SECRET.length : 0
+});
+
+// Twitter OAuth setup with improved configuration
 const twitterClient = new TwitterAPI({
   appKey: process.env.TWITTER_API_KEY,
   appSecret: process.env.TWITTER_API_SECRET,
-  accessToken: process.env.TWITTER_ACCESS_TOKEN,
-  accessSecret: process.env.TWITTER_ACCESS_SECRET,
+  // Remove access token and secret - they're not needed for OAuth flows
+  // accessToken: process.env.TWITTER_ACCESS_TOKEN,
+  // accessSecret: process.env.TWITTER_ACCESS_SECRET,
+  // Set API version explicitly
+  version: '2', // Use v2 API by default
+  // Rate limit handling
+  rateLimitPlugin: {
+    // Wait for rate limit reset when hitting limits
+    maxRetries: 3,
+    retryDelay: 5000,
+  }
+});
+
+// Create OAuth 1.0a instance
+const oauth = new OAuth({
+  consumer: {
+    key: process.env.TWITTER_API_KEY,
+    secret: process.env.TWITTER_API_SECRET
+  },
+  signature_method: 'HMAC-SHA1',
+  hash_function(base_string, key) {
+    return crypto
+      .createHmac('sha1', key)
+      .update(base_string)
+      .digest('base64');
+  }
 });
 
 // Store OAuth tokens for use later in the authentication flow
 const oauthTokens = {}; // In production, use Redis or similar
+
+// Add timestamp to stored tokens for cleanup
+// const oauthTokens = {}; 
+
+// Add a cleanup function to remove old tokens
+const cleanupOldTokens = () => {
+  const now = Date.now();
+  const expireTime = 30 * 60 * 1000; // 30 minutes
+  
+  Object.keys(oauthTokens).forEach(token => {
+    if (now - oauthTokens[token].timestamp > expireTime) {
+      console.log('Cleaning up expired token:', token.substring(0, 10));
+      delete oauthTokens[token];
+    }
+  });
+};
+
+// Run cleanup every 10 minutes
+setInterval(cleanupOldTokens, 10 * 60 * 1000);
 
 // Initiate Twitter auth
 router.get('/auth', auth, async (req, res) => {
@@ -28,32 +81,80 @@ router.get('/auth', auth, async (req, res) => {
     
     console.log('Using callback URL:', callbackUrl);
     
-    // Get auth link from Twitter
-    const authLink = await twitterClient.generateAuthLink(callbackUrl);
+    // Request token endpoint
+    const requestTokenURL = 'https://api.twitter.com/oauth/request_token';
     
-    // Store tokens temporarily (with user ID for association)
-    oauthTokens[authLink.oauth_token] = {
-      oauth_token_secret: authLink.oauth_token_secret,
-      userId: req.user._id.toString(),
+    // Prepare auth header
+    const requestData = {
+      url: requestTokenURL,
+      method: 'POST',
+      data: { oauth_callback: callbackUrl }
     };
     
-    console.log('Generated Twitter auth URL and stored tokens');
+    // Get authorization header
+    const authHeader = oauth.toHeader(oauth.authorize(requestData));
+    
+    // Make the request manually
+    const fetch = require('node-fetch');
+    const response = await fetch(requestTokenURL, {
+      method: 'POST',
+      headers: {
+        ...authHeader,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: `oauth_callback=${encodeURIComponent(callbackUrl)}`
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Twitter API error:', {
+        status: response.status,
+        response: errorText
+      });
+      throw new Error(`Twitter API error (${response.status}): ${errorText}`);
+    }
+    
+    const responseText = await response.text();
+    const responseParams = new URLSearchParams(responseText);
+    
+    const oauth_token = responseParams.get('oauth_token');
+    const oauth_token_secret = responseParams.get('oauth_token_secret');
+    
+    if (!oauth_token || !oauth_token_secret) {
+      console.error('Invalid response from Twitter:', responseText);
+      throw new Error('Invalid response from Twitter API');
+    }
+    
+    // Store tokens temporarily with timestamp
+    oauthTokens[oauth_token] = {
+      oauth_token_secret,
+      userId: req.user._id.toString(),
+      timestamp: Date.now()
+    };
+    
+    // Construct auth URL
+    const authUrl = `https://api.twitter.com/oauth/authorize?oauth_token=${oauth_token}`;
+    
+    console.log('Generated Twitter auth URL:', {
+      token: oauth_token.substring(0, 10) + '...',
+      url: authUrl.substring(0, 50) + '...',
+    });
     
     // Send the auth URL back to the client
-    res.json({ authUrl: authLink.url });
+    res.json({ authUrl });
   } catch (error) {
     console.error('Twitter auth initiation error:', error);
     res.status(500).json({ message: `Failed to initiate Twitter authentication: ${error.message}` });
   }
 });
 
-// Handle Twitter auth callback
+// Handle Twitter auth callback - FIX: Remove auth middleware for callback
 router.get('/callback', async (req, res) => {
   try {
     const { oauth_token, oauth_verifier } = req.query;
     
     console.log('Twitter callback received with tokens:', { 
-      oauth_token: oauth_token ? '✓' : '✗', 
+      oauth_token: oauth_token ? oauth_token.substring(0, 10) + '...' : 'MISSING', 
       oauth_verifier: oauth_verifier ? '✓' : '✗' 
     });
     
@@ -61,36 +162,41 @@ router.get('/callback', async (req, res) => {
       console.error('Invalid or expired OAuth request', { 
         hasOauthToken: !!oauth_token, 
         hasOauthVerifier: !!oauth_verifier, 
-        storedTokenExists: oauth_token ? (!!oauthTokens[oauth_token]) : false 
+        storedTokenExists: oauth_token ? (!!oauthTokens[oauth_token]) : false,
+        storedTokensCount: Object.keys(oauthTokens).length
       });
       return res.status(400).json({ message: 'Invalid or expired OAuth request' });
     }
     
     const { oauth_token_secret, userId } = oauthTokens[oauth_token];
     
-    console.log('Found stored token for user:', userId);
+    // Find the user 
+    const user = await User.findById(userId);
+    if (!user) {
+      console.error('User not found:', userId);
+      return res.status(404).json({ message: 'User not found' });
+    }
     
-    // Finalize auth with Twitter
-    const client = new TwitterAPI({
-      appKey: process.env.TWITTER_API_KEY,
-      appSecret: process.env.TWITTER_API_SECRET,
-    });
-    
-    console.log('Created Twitter client for authentication');
+    console.log('Found user for token:', user.email || user.address);
     
     try {
-      // Get the final access tokens
-      const { accessToken, accessSecret, screenName, userId: twitterId } = 
-        await client.login(oauth_verifier, { 
-          key: oauth_token, 
-          secret: oauth_token_secret 
-        });
+      // Create a client specifically for this callback
+      const callbackClient = new TwitterAPI({
+        appKey: process.env.TWITTER_API_KEY,
+        appSecret: process.env.TWITTER_API_SECRET,
+        accessToken: oauth_token,
+        accessSecret: oauth_token_secret,
+      });
       
-      console.log('Successfully logged in to Twitter as:', screenName);
+      // Log in to get access credentials
+      const { client, accessToken, accessSecret, screenName, userId: twitterUserId } = 
+        await callbackClient.login(oauth_verifier);
+      
+      console.log('Twitter login successful as:', screenName);
       
       // Update user with Twitter credentials
       await User.findByIdAndUpdate(userId, {
-        twitterId,
+        twitterId: twitterUserId,
         twitterUsername: screenName,
         twitterTokenKey: accessToken,
         twitterTokenSecret: accessSecret
@@ -104,8 +210,8 @@ router.get('/callback', async (req, res) => {
       // Return success
       res.json({ success: true, username: screenName });
     } catch (twitterError) {
-      console.error('Error during Twitter login:', twitterError);
-      res.status(500).json({ message: `Twitter login failed: ${twitterError.message}` });
+      console.error('Twitter login error details:', twitterError);
+      res.status(401).json({ message: `Twitter login failed: ${twitterError.message}` });
     }
   } catch (error) {
     console.error('Twitter callback error:', error);
@@ -285,5 +391,65 @@ router.post('/verify-task', auth, async (req, res) => {
     res.status(500).json({ message: 'Verification error' });
   }
 });
+
+// Add this route for diagnosing Twitter API issues
+
+// Status endpoint to check Twitter API configuration
+router.get('/status', auth, async (req, res) => {
+  try {
+    // Check if Twitter API client is working
+    const result = await twitterClient.v2.get('tweets/search/recent', { 
+      query: 'test', 
+      max_results: 1
+    });
+    
+    res.json({ 
+      status: 'Twitter API connection successful', 
+      credentials: {
+        hasApiKey: !!process.env.TWITTER_API_KEY,
+        hasApiSecret: !!process.env.TWITTER_API_SECRET,
+        hasAccessToken: !!process.env.TWITTER_ACCESS_TOKEN,
+        hasAccessSecret: !!process.env.TWITTER_ACCESS_SECRET
+      },
+      tokenStorage: {
+        count: Object.keys(oauthTokens).length,
+        keys: Object.keys(oauthTokens).map(k => k.substring(0, 8) + '...')
+      },
+      user: {
+        id: req.user._id,
+        address: req.user.address,
+        twitterConnected: !!req.user.twitterId
+      }
+    });
+  } catch (error) {
+    console.error('Twitter API status check error:', error);
+    res.status(500).json({ 
+      status: 'Twitter API connection failed', 
+      error: error.message,
+      credentials: {
+        hasApiKey: !!process.env.TWITTER_API_KEY,
+        hasApiSecret: !!process.env.TWITTER_API_SECRET,
+        hasAccessToken: !!process.env.TWITTER_ACCESS_TOKEN,
+        hasAccessSecret: !!process.env.TWITTER_ACCESS_SECRET
+      }
+    });
+  }
+});
+
+// Test Twitter client connectivity on startup
+(async () => {
+  try {
+    console.log('Testing Twitter API connection...');
+    // Simple test API call
+    const testResponse = await twitterClient.v2.get('tweets/search/recent', { 
+      query: 'web3', 
+      max_results: 1
+    });
+    console.log('Twitter API connection successful!');
+  } catch (error) {
+    console.error('WARNING: Twitter API connection test failed:', error.message);
+    console.error('Please check your Twitter API credentials.');
+  }
+})();
 
 module.exports = router;

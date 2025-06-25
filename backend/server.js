@@ -7,29 +7,22 @@ require('dotenv').config();
 
 const app = express();
 
+// Improved CORS configuration
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+app.use(cors({
+  origin: [frontendUrl, 'https://api.twitter.com'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+}));
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
 
-// CORS setup with more permissive options for development
-app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001'
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  exposedHeaders: ['Set-Cookie'] // Make sure Set-Cookie is exposed
-}));
-
-// Debugging middleware to log request details
+// Log requests for debugging
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
-  console.log('Headers:', req.headers);
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log('Body:', req.body);
-  }
+  console.log(`${req.method} ${req.path} - Has token: ${req.cookies.token ? 'Yes' : 'No'}`);
   next();
 });
 
