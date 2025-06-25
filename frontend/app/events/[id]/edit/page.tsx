@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
-import Link from 'next/link'
+import { FiArrowLeft, FiImage, FiCalendar, FiEdit3, FiToggleRight } from 'react-icons/fi'
+import { PageWrapper } from '@/components/ui/page-wrapper'
+import { GlassCard } from '@/components/ui/glass-card'
+import { motion } from 'framer-motion'
 
 interface Event {
   _id: string;
@@ -141,35 +144,55 @@ export default function EditEventPage() {
   
   if (loading) {
     return (
-      <div className="min-h-screen p-8 flex items-center justify-center">
-        <p>Loading event details...</p>
-      </div>
+      <PageWrapper className="flex items-center justify-center">
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <p className="text-lg text-white">Loading event details...</p>
+          <div className="mt-4 h-2 w-40 mx-auto bg-gray-700 overflow-hidden rounded-full">
+            <motion.div
+              className="h-full bg-gradient-to-r from-light-green to-dark-green"
+              initial={{ width: "0%" }}
+              animate={{ width: "100%" }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+          </div>
+        </motion.div>
+      </PageWrapper>
     )
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <PageWrapper>
       <div className="max-w-3xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Edit Event</h1>
-          <Link 
-            href={`/events/${id}`} 
-            className="py-2 px-4 bg-gray-600 text-white rounded hover:bg-gray-700"
+        <motion.div 
+          className="flex justify-between items-center mb-8 gap-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <h1 className="text-3xl font-bold gradient-text">Edit Event</h1>
+          <button 
+            onClick={() => router.push(`/events/${id}`)}
+            className="glass-button inline-flex items-center"
           >
-            Back to Event
-          </Link>
-        </div>
+            <FiArrowLeft className="mr-2" /> Back to Event
+          </button>
+        </motion.div>
         
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <GlassCard animate withBorder highlight>
           {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl">
               {error}
             </div>
           )}
           
           <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="title">
+            <div className="mb-6">
+              <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="title">
                 Event Title *
               </label>
               <input
@@ -178,14 +201,14 @@ export default function EditEventPage() {
                 type="text"
                 value={formData.title}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="glass-input w-full"
                 placeholder="Enter a title for your event"
                 required
               />
             </div>
             
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
+            <div className="mb-6">
+              <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="description">
                 Description *
               </label>
               <textarea
@@ -193,15 +216,16 @@ export default function EditEventPage() {
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+                className="glass-input w-full h-32 resize-none"
                 placeholder="Describe your event and what participants will gain from it"
                 required
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="startDate">
+                <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="startDate">
+                  <FiCalendar className="inline-block mr-2" />
                   Start Date
                 </label>
                 <input
@@ -210,12 +234,13 @@ export default function EditEventPage() {
                   type="date"
                   value={formData.startDate}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="glass-input w-full"
                 />
               </div>
               
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="endDate">
+                <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="endDate">
+                  <FiCalendar className="inline-block mr-2" />
                   End Date *
                 </label>
                 <input
@@ -224,14 +249,15 @@ export default function EditEventPage() {
                   type="date"
                   value={formData.endDate}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="glass-input w-full"
                   required
                 />
               </div>
             </div>
             
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="imageUrl">
+            <div className="mb-6">
+              <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="imageUrl">
+                <FiImage className="inline-block mr-2" />
                 Cover Image URL
               </label>
               <input
@@ -240,46 +266,68 @@ export default function EditEventPage() {
                 type="url"
                 value={formData.imageUrl}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="glass-input w-full"
                 placeholder="https://example.com/image.jpg"
               />
-              <p className="text-xs text-gray-500 mt-1">Leave blank to remove image</p>
+              <p className="text-xs text-gray-400 mt-1">Leave blank to remove image</p>
             </div>
             
-            <div className="mb-6">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  name="isActive"
-                  checked={formData.isActive}
-                  onChange={handleChange}
-                  className="mr-2"
+            <div className="mb-6 flex items-center p-4 rounded-xl border border-gray-700/30 bg-gray-800/20">
+              <input
+                type="checkbox"
+                id="isActive"
+                name="isActive"
+                checked={formData.isActive}
+                onChange={handleChange}
+                className="sr-only"
+              />
+              <label 
+                htmlFor="isActive"
+                className={`flex items-center cursor-pointer w-12 h-6 rounded-full p-1 ${formData.isActive ? 'bg-green-500/80' : 'bg-gray-600/50'}`}
+              >
+                <motion.div 
+                  className="bg-white w-4 h-4 rounded-full shadow-md"
+                  animate={{ x: formData.isActive ? 24 : 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 />
-                <span className="text-gray-700">Active event</span>
               </label>
-              <p className="text-xs text-gray-500 mt-1 ml-6">
-                Inactive events won't allow new participants to join or complete tasks
-              </p>
+              
+              <div className="ml-4">
+                <h3 className="font-medium text-white">Event Status</h3>
+                <p className="text-xs text-gray-400">
+                  {formData.isActive 
+                    ? 'Active: Participants can join and complete tasks' 
+                    : 'Inactive: Event is paused and not visible to new participants'}
+                </p>
+              </div>
             </div>
             
             <div className="flex justify-between items-center">
-              <Link
-                href={`/events/${id}`} 
-                className="py-2 px-4 border border-gray-300 text-gray-700 rounded hover:bg-gray-100"
-              >
-                Cancel
-              </Link>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="py-2 px-6 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </button>
+              <p className="text-sm text-gray-400">
+                * Required fields
+              </p>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => router.push(`/events/${id}`)}
+                  className="glass-button bg-gray-700/50 text-gray-300"
+                >
+                  Cancel
+                </button>
+                <motion.button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="glass-button bg-gradient-to-r from-light-green to-dark-green text-black"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </motion.button>
+              </div>
             </div>
           </form>
-        </div>
+        </GlassCard>
       </div>
-    </div>
+    </PageWrapper>
   )
 }

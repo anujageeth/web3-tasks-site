@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import { appKitModal } from '@/config'
 import Link from 'next/link'
+import { PageWrapper } from '@/components/ui/page-wrapper'
+import { GlassCard } from '@/components/ui/glass-card'
+import { motion } from 'framer-motion'
+import { FiExternalLink, FiPlus, FiUser, FiCalendar, FiUsers } from 'react-icons/fi'
 
 interface Event {
   _id: string;
@@ -97,141 +101,183 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <p className="mb-4">Loading...</p>
-        {error && (
-          <p className="text-red-600">{error}</p>
-        )}
-      </div>
+      <PageWrapper className="flex flex-col items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="text-center"
+        >
+          <p className="mb-4 text-lg text-white">Loading dashboard...</p>
+          <div className="mt-4 h-2 w-40 mx-auto bg-gray-800 overflow-hidden rounded-full">
+            <motion.div
+              className="h-full bg-gradient-to-r from-light-green to-dark-green"
+              initial={{ width: "0%" }}
+              animate={{ width: "100%" }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+          </div>
+          {error && (
+            <p className="mt-6 text-red-400">{error}</p>
+          )}
+        </motion.div>
+      </PageWrapper>
     );
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <PageWrapper>
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <div className="space-x-4">
-            <Link 
-              href="/events/create" 
-              className="py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              Create Event
-            </Link>
-            <Link 
-              href="/profile" 
-              className="py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Profile
-            </Link>
-            <button
-              onClick={handleSignOut}
-              className="py-2 px-4 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
+        <motion.div 
+          className="flex justify-between items-center mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <h1 className="text-4xl font-bold gradient-text">Dashboard</h1>
+        </motion.div>
         
-        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-          <h2 className="text-xl font-semibold mb-4">Welcome to your Dashboard</h2>
-          <p className="mb-2"><strong>Connected Address:</strong> {address}</p>
-          {userData && (
-            <div className="mt-4">
-              {userData.firstName && (
-                <p>
-                  <strong>Name:</strong> {userData.firstName} {userData.lastName}
-                </p>
-              )}
-              {userData.email && (
-                <p><strong>Email:</strong> {userData.email}</p>
-              )}
-              <p><strong>Total Points Earned:</strong> {userData.totalPoints}</p>
-              <p><strong>Last login:</strong> {new Date(userData.lastLogin).toLocaleString()}</p>
+        <GlassCard className="mb-8" animate withBorder highlight>
+          <h2 className="text-xl font-semibold mb-4 text-white">Welcome back</h2>
+          <div className="flex flex-wrap gap-6">
+            <div>
+              <p className="text-sm text-gray-400">Connected Address</p>
+              <p className="font-mono text-light-green">{address?.slice(0, 8)}...{address?.slice(-6)}</p>
             </div>
-          )}
-        </div>
+            
+            {userData && (
+              <>
+                {userData.firstName && (
+                  <div>
+                    <p className="text-sm text-gray-400">Name</p>
+                    <p className="text-white">{userData.firstName} {userData.lastName}</p>
+                  </div>
+                )}
+                {userData.email && (
+                  <div>
+                    <p className="text-sm text-gray-400">Email</p>
+                    <p className="text-white">{userData.email}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-gray-400">Total Points</p>
+                  <p className="text-light-green font-bold">{userData.totalPoints}</p>
+                </div>
+              </>
+            )}
+          </div>
+        </GlassCard>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Created Events */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Your Created Events</h2>
-              <Link 
-                href="/events/create" 
-                className="py-1 px-3 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-              >
-                + New
-              </Link>
-            </div>
-            
-            {eventsLoading ? (
-              <p className="text-gray-500 text-center py-4">Loading events...</p>
-            ) : createdEvents.length > 0 ? (
-              <div className="space-y-4">
-                {createdEvents.map(event => (
-                  <Link href={`/events/${event._id}`} key={event._id} className="block">
-                    <div className="border rounded-lg p-4 hover:bg-gray-50">
-                      <div className="flex justify-between">
-                        <h3 className="font-medium">{event.title}</h3>
-                        <span className={`px-2 py-1 rounded text-xs ${event.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                          {event.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 line-clamp-2 mt-1">{event.description}</p>
-                      <div className="flex justify-between mt-2 text-xs text-gray-500">
-                        <span>Participants: {event.participants?.length || 0}</span>
-                        <span>Points: {event.totalPoints}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <GlassCard>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-white">Your Created Events</h2>
+                <Link 
+                  href="/events/create" 
+                  className="glass-button inline-flex items-center text-sm"
+                >
+                  <FiPlus className="mr-1" /> New
+                </Link>
               </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">You haven't created any events yet</p>
-            )}
-          </div>
+              
+              {eventsLoading ? (
+                <div className="py-4 text-center">
+                  <p className="text-gray-400">Loading events...</p>
+                </div>
+              ) : createdEvents.length > 0 ? (
+                <div className="space-y-4">
+                  {createdEvents.map(event => (
+                    <Link href={`/events/${event._id}`} key={event._id} className="block">
+                      <div className="border border-gray-700/50 rounded-xl p-4 hover:bg-white/5 transition-colors backdrop-blur-sm">
+                        <div className="flex justify-between">
+                          <h3 className="font-medium text-white">{event.title}</h3>
+                          <span className={event.isActive ? 'glass-badge' : 'glass-badge glass-badge-inactive'}>
+                            {event.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-300 line-clamp-2 mt-1">{event.description}</p>
+                        <div className="flex justify-between mt-2 text-xs text-gray-400">
+                          <span className="flex items-center">
+                            <FiUsers className="mr-1" /> {event.participants?.length || 0}
+                          </span>
+                          <span className="text-light-green">{event.totalPoints} points</span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 border border-dashed border-gray-700 rounded-xl">
+                  <p className="text-gray-400 mb-4">You haven't created any events yet</p>
+                  <Link href="/events/create" className="glass-button text-sm">
+                    Create Your First Event
+                  </Link>
+                </div>
+              )}
+            </GlassCard>
+          </motion.div>
           
           {/* Joined Events */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Events You've Joined</h2>
-              <Link 
-                href="/events" 
-                className="py-1 px-3 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-              >
-                Browse Events
-              </Link>
-            </div>
-            
-            {eventsLoading ? (
-              <p className="text-gray-500 text-center py-4">Loading events...</p>
-            ) : joinedEvents.length > 0 ? (
-              <div className="space-y-4">
-                {joinedEvents.map(event => (
-                  <Link href={`/events/${event._id}`} key={event._id} className="block">
-                    <div className="border rounded-lg p-4 hover:bg-gray-50">
-                      <div className="flex justify-between">
-                        <h3 className="font-medium">{event.title}</h3>
-                        <span className={`px-2 py-1 rounded text-xs ${event.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                          {event.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 line-clamp-2 mt-1">{event.description}</p>
-                      <div className="flex justify-between mt-2 text-xs text-gray-500">
-                        <span>Ends: {new Date(event.endDate).toLocaleDateString()}</span>
-                        <span>Points: {event.totalPoints}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <GlassCard>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-white">Events You've Joined</h2>
+                <Link 
+                  href="/events" 
+                  className="glass-button inline-flex items-center text-sm"
+                >
+                  Browse
+                </Link>
               </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">You haven't joined any events yet</p>
-            )}
-          </div>
+              
+              {eventsLoading ? (
+                <div className="py-4 text-center">
+                  <p className="text-gray-400">Loading events...</p>
+                </div>
+              ) : joinedEvents.length > 0 ? (
+                <div className="space-y-4">
+                  {joinedEvents.map(event => (
+                    <Link href={`/events/${event._id}`} key={event._id} className="block">
+                      <div className="border border-gray-700/50 rounded-xl p-4 hover:bg-white/5 transition-colors backdrop-blur-sm">
+                        <div className="flex justify-between">
+                          <h3 className="font-medium text-white">{event.title}</h3>
+                          <span className={event.isActive ? 'glass-badge' : 'glass-badge glass-badge-inactive'}>
+                            {event.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-300 line-clamp-2 mt-1">{event.description}</p>
+                        <div className="flex justify-between mt-2 text-xs text-gray-400">
+                          <span className="flex items-center">
+                            <FiCalendar className="mr-1" /> {new Date(event.endDate).toLocaleDateString()}
+                          </span>
+                          <span className="text-light-green">{event.totalPoints} points</span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 border border-dashed border-gray-700 rounded-xl">
+                  <p className="text-gray-400 mb-4">You haven't joined any events yet</p>
+                  <Link href="/events" className="glass-button text-sm">
+                    Browse Available Events
+                  </Link>
+                </div>
+              )}
+            </GlassCard>
+          </motion.div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   )
 }

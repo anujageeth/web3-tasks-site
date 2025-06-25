@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+// Fix the type signature here - the second parameter should use proper typing
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -12,15 +13,14 @@ export async function POST(
     if (!token) {
       return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
     }
-
-    const eventId = params.id;
     
-    // Forward to backend with cookie
+    // Forward to backend
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
-    const response = await fetch(`${backendUrl}/api/events/${eventId}/join`, {
+    const response = await fetch(`${backendUrl}/api/events/${params.id}/join`, {
       method: 'POST',
       headers: {
-        'Cookie': `token=${token}`
+        'Cookie': `token=${token}`,
+        'Content-Type': 'application/json'
       },
       credentials: 'include'
     });

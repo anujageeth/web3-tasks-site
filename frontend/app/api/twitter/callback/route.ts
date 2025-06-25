@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export async function GET(request: NextRequest) {
   try {
+    // Get tokens from Twitter oauth callback
+    const searchParams = request.nextUrl.searchParams;
+    const oauth_token = searchParams.get('oauth_token');
+    const oauth_verifier = searchParams.get('oauth_verifier');
+    
+    if (!oauth_token || !oauth_verifier) {
+      // Redirect to profile with error
+      return redirect(`/profile?error=${encodeURIComponent('Twitter authentication failed: Missing oauth parameters')}`);
+    }
+    
     const cookieStore = cookies();
     const token = cookieStore.get('token')?.value;
     
     if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-    
-    // Get query params from URL
-    const url = new URL(request.url);
-    const oauth_token = url.searchParams.get('oauth_token');
-    const oauth_verifier = url.searchParams.get('oauth_verifier');
-    
-    if (!oauth_token || !oauth_verifier) {
-      return NextResponse.redirect(new URL('/profile?error=Twitter authentication failed', request.url));
+      return redirect('/login');
     }
     
     // Forward to backend
@@ -24,26 +26,26 @@ export async function GET(request: NextRequest) {
     const response = await fetch(
       `${backendUrl}/api/twitter/callback?oauth_token=${oauth_token}&oauth_verifier=${oauth_verifier}`,
       {
+        method: 'GET',
         headers: {
           'Cookie': `token=${token}`
         },
         credentials: 'include'
       }
     );
-    
-    // Redirect to profile page regardless of result
-    const redirectUrl = new URL('/profile', request.url);
-    
+
     if (!response.ok) {
-      // Add error parameter if something went wrong
-      redirectUrl.searchParams.set('error', 'Twitter connection failed');
-    } else {
-      redirectUrl.searchParams.set('success', 'Twitter account connected successfully');
+      const errorData = await response.json();
+      console.error('Twitter callback error:', errorData);
+      return redirect(`/profile?error=${encodeURIComponent(errorData.message || 'Twitter authentication failed')}`);
     }
     
-    return NextResponse.redirect(redirectUrl);
-  } catch (error) {
+    const data = await response.json();
+    
+    // Redirect back to profile with success message
+    return redirect(`/profile?success=${encodeURIComponent(`Successfully connected Twitter as @${data.username}`)}`);
+  } catch (error: any) {
     console.error('Twitter callback error:', error);
-    return NextResponse.redirect(new URL('/profile?error=Server error', request.url));
+    return redirect(`/profile?error=${encodeURIComponent(`Twitter authentication failed: ${error.message}`)}`);
   }
 }

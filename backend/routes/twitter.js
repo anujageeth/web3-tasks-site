@@ -20,22 +20,30 @@ const oauthTokens = {}; // In production, use Redis or similar
 // Initiate Twitter auth
 router.get('/auth', auth, async (req, res) => {
   try {
-    const callbackUrl = req.query.callbackUrl || `${process.env.FRONTEND_URL}/api/twitter/callback`;
+    console.log('Starting Twitter auth process for user:', req.user._id);
+    
+    // Get callback URL from query parameter
+    const callbackUrl = req.query.callbackUrl || 
+                       (process.env.FRONTEND_URL || 'http://localhost:3001') + '/api/twitter/callback';
+    
+    console.log('Using callback URL:', callbackUrl);
     
     // Get auth link from Twitter
-    const { url, oauth_token, oauth_token_secret } = await twitterClient.generateAuthLink(callbackUrl);
+    const authLink = await twitterClient.generateAuthLink(callbackUrl);
     
     // Store tokens temporarily (with user ID for association)
-    oauthTokens[oauth_token] = {
-      oauth_token_secret,
-      userId: req.user._id.toString()
+    oauthTokens[authLink.oauth_token] = {
+      oauth_token_secret: authLink.oauth_token_secret,
+      userId: req.user._id.toString(),
     };
     
+    console.log('Generated Twitter auth URL and stored tokens');
+    
     // Send the auth URL back to the client
-    res.json({ authUrl: url });
+    res.json({ authUrl: authLink.url });
   } catch (error) {
     console.error('Twitter auth initiation error:', error);
-    res.status(500).json({ message: 'Failed to initiate Twitter authentication' });
+    res.status(500).json({ message: `Failed to initiate Twitter authentication: ${error.message}` });
   }
 });
 
@@ -44,11 +52,23 @@ router.get('/callback', async (req, res) => {
   try {
     const { oauth_token, oauth_verifier } = req.query;
     
+    console.log('Twitter callback received with tokens:', { 
+      oauth_token: oauth_token ? '✓' : '✗', 
+      oauth_verifier: oauth_verifier ? '✓' : '✗' 
+    });
+    
     if (!oauth_token || !oauth_verifier || !oauthTokens[oauth_token]) {
+      console.error('Invalid or expired OAuth request', { 
+        hasOauthToken: !!oauth_token, 
+        hasOauthVerifier: !!oauth_verifier, 
+        storedTokenExists: oauth_token ? (!!oauthTokens[oauth_token]) : false 
+      });
       return res.status(400).json({ message: 'Invalid or expired OAuth request' });
     }
     
     const { oauth_token_secret, userId } = oauthTokens[oauth_token];
+    
+    console.log('Found stored token for user:', userId);
     
     // Finalize auth with Twitter
     const client = new TwitterAPI({
@@ -56,29 +76,40 @@ router.get('/callback', async (req, res) => {
       appSecret: process.env.TWITTER_API_SECRET,
     });
     
-    // Get the final access tokens
-    const { accessToken, accessSecret, screenName, userId: twitterId } = 
-      await client.login(oauth_verifier, { 
-        key: oauth_token, 
-        secret: oauth_token_secret 
+    console.log('Created Twitter client for authentication');
+    
+    try {
+      // Get the final access tokens
+      const { accessToken, accessSecret, screenName, userId: twitterId } = 
+        await client.login(oauth_verifier, { 
+          key: oauth_token, 
+          secret: oauth_token_secret 
+        });
+      
+      console.log('Successfully logged in to Twitter as:', screenName);
+      
+      // Update user with Twitter credentials
+      await User.findByIdAndUpdate(userId, {
+        twitterId,
+        twitterUsername: screenName,
+        twitterTokenKey: accessToken,
+        twitterTokenSecret: accessSecret
       });
-    
-    // Update user with Twitter credentials
-    await User.findByIdAndUpdate(userId, {
-      twitterId,
-      twitterUsername: screenName,
-      twitterTokenKey: accessToken,
-      twitterTokenSecret: accessSecret
-    });
-    
-    // Clean up stored token
-    delete oauthTokens[oauth_token];
-    
-    // Redirect back to frontend
-    res.json({ success: true, username: screenName });
+      
+      console.log('User updated with Twitter credentials');
+      
+      // Clean up stored token
+      delete oauthTokens[oauth_token];
+      
+      // Return success
+      res.json({ success: true, username: screenName });
+    } catch (twitterError) {
+      console.error('Error during Twitter login:', twitterError);
+      res.status(500).json({ message: `Twitter login failed: ${twitterError.message}` });
+    }
   } catch (error) {
     console.error('Twitter callback error:', error);
-    res.status(500).json({ message: 'Twitter authentication failed' });
+    res.status(500).json({ message: `Twitter authentication failed: ${error.message}` });
   }
 });
 

@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation"
 import { appKitModal } from "@/config"
 import { createWalletClient, custom } from 'viem'
 import { mainnet } from 'viem/chains'
+import { PageWrapper } from "@/components/ui/page-wrapper"
+import { motion } from "framer-motion"
+import { GlassCard } from "@/components/ui/glass-card"
 
 export default function Login() {
   const router = useRouter()
@@ -110,18 +113,23 @@ export default function Login() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <div className="w-full max-w-md p-8 space-y-8 bg-white shadow-lg rounded-lg border border-gray-200">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">Login to Dashboard</h1>
-          <p className="mt-2 text-gray-600">Connect your wallet to continue</p>
-        </div>
-        
-        <div className="mt-8">
+    <PageWrapper className="flex flex-col items-center justify-center">
+      <motion.div
+        className="w-full max-w-md"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <GlassCard className="p-8" withBorder highlight>
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-white mb-1">Login to Dashboard</h1>
+            <p className="text-gray-300 mb-8">Connect your wallet to continue</p>
+          </div>
+          
           <button
             onClick={handleConnect}
             disabled={isSigningIn}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none disabled:opacity-70"
+            className="glass-button w-full py-3 flex justify-center items-center disabled:opacity-70"
           >
             {isSigningIn
               ? 'Signing in...'
@@ -132,18 +140,18 @@ export default function Login() {
           </button>
           
           {isSigningIn && (
-            <p className="mt-2 text-center text-sm text-gray-600">
+            <p className="mt-4 text-center text-sm text-gray-300">
               Please sign the message in your wallet...
             </p>
           )}
           
           {error && (
-            <p className="mt-2 text-center text-sm text-red-600">
+            <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl">
               {error}
-            </p>
+            </div>
           )}
-        </div>
-      </div>
-    </div>
+        </GlassCard>
+      </motion.div>
+    </PageWrapper>
   )
 }

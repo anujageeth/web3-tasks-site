@@ -5,6 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { FaTwitter, FaInstagram, FaFacebookF, FaDiscord, FaTelegram } from 'react-icons/fa'
+import { FiCalendar, FiUsers, FiCheck, FiEdit, FiPlus, FiArrowLeft, FiExternalLink, FiClock, FiAward } from 'react-icons/fi'
+import { PageWrapper } from '@/components/ui/page-wrapper'
+import { GlassCard } from '@/components/ui/glass-card'
+import { motion } from 'framer-motion'
 
 interface Task {
   _id: string;
@@ -261,20 +265,40 @@ export default function EventDetailPage() {
   
   if (loading) {
     return (
-      <div className="min-h-screen p-8 flex items-center justify-center">
-        <p>Loading event...</p>
-      </div>
+      <PageWrapper className="flex items-center justify-center">
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <p className="text-lg text-white">Loading event details...</p>
+          <div className="mt-4 h-2 w-40 mx-auto bg-gray-700 overflow-hidden rounded-full">
+            <motion.div
+              className="h-full bg-gradient-to-r from-light-green to-dark-green"
+              initial={{ width: "0%" }}
+              animate={{ width: "100%" }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+          </div>
+        </motion.div>
+      </PageWrapper>
     )
   }
   
   if (error || !event) {
     return (
-      <div className="min-h-screen p-8 flex flex-col items-center justify-center">
-        <p className="text-red-600 mb-4">{error || 'Event not found'}</p>
-        <Link href="/dashboard" className="text-blue-600">
-          Return to Dashboard
-        </Link>
-      </div>
+      <PageWrapper className="flex flex-col items-center justify-center">
+        <GlassCard animate withBorder className="text-center">
+          <p className="text-red-400 mb-4">{error || 'Event not found'}</p>
+          <button 
+            onClick={() => router.push('/dashboard')} 
+            className="glass-button inline-flex items-center"
+          >
+            <FiArrowLeft className="mr-2" /> Return to Dashboard
+          </button>
+        </GlassCard>
+      </PageWrapper>
     )
   }
   
@@ -292,319 +316,388 @@ export default function EventDetailPage() {
   const userPoints = userParticipant?.pointsEarned || 0
 
   return (
-    <div className="min-h-screen p-8">
+    <PageWrapper>
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <Link 
-            href="/dashboard" 
-            className="text-blue-600 hover:underline"
+        <motion.div 
+          className="flex justify-between items-center mb-6"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <button 
+            onClick={() => router.push('/dashboard')}
+            className="glass-button inline-flex items-center"
           >
-            ← Back to Dashboard
-          </Link>
+            <FiArrowLeft className="mr-2" /> Dashboard
+          </button>
           
           {isCreator && (
-            <div className="flex space-x-2">
-              <Link 
-                href={`/events/${id}/edit`}
-                className="py-1 px-3 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+            <div className="flex gap-2">
+              <button 
+                onClick={() => router.push(`/events/${id}/edit`)}
+                className="glass-button inline-flex items-center"
               >
-                Edit Event
-              </Link>
-              <Link 
-                href={`/events/${id}/tasks/add`}
-                className="py-1 px-3 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                <FiEdit className="mr-2" /> Edit Event
+              </button>
+              <button 
+                onClick={() => router.push(`/events/${id}/tasks/add`)}
+                className="glass-button inline-flex items-center"
               >
-                Add Task
-              </Link>
+                <FiPlus className="mr-2" /> Add Task
+              </button>
             </div>
           )}
-        </div>
+        </motion.div>
         
         {/* Event Header */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-          {event.imageUrl && (
-            <img 
-              src={event.imageUrl} 
-              alt={event.title} 
-              className="w-full h-48 object-cover" 
-            />
-          )}
-          
-          <div className="p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-2xl font-bold mb-2">{event.title}</h1>
-                <p className="text-gray-600 mb-4">{event.description}</p>
-              </div>
-              <span className={`px-3 py-1 rounded-full text-sm ${isEventActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                {isEventActive ? 'Active' : 'Inactive'}
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-              <div>
-                <p className="text-xs text-gray-500">Created By</p>
-                <p className="font-medium truncate">
-                  {event.creator.firstName || event.creator.address.substring(0, 8)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Start Date</p>
-                <p className="font-medium">{new Date(event.startDate).toLocaleDateString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">End Date</p>
-                <p className="font-medium">{new Date(event.endDate).toLocaleDateString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Total Points</p>
-                <p className="font-medium">{event.totalPoints}</p>
-              </div>
-            </div>
-            
-            {/* Join button or progress */}
-            {!isCreator && (
-              hasJoined ? (
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <p className="text-sm font-medium">Your Progress</p>
-                    <p className="text-sm">
-                      {completedTasks}/{totalTasks} tasks ({Math.round(progressPercentage)}%)
-                    </p>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <GlassCard withBorder highlight className="relative overflow-hidden">
+            {event.imageUrl && (
+              <div className="relative w-full h-40 -mx-6 -mt-6 mb-6">
+                <div 
+                  className="absolute inset-0 bg-cover bg-center"
+                  style={{
+                    backgroundImage: `url(${event.imageUrl})`,
+                    filter: 'blur(2px)',
+                    transform: 'scale(1.03)'
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent" />
+                <div className="absolute top-6 left-6 right-6">
+                  <div 
+                    className={`inline-block px-3 py-1 rounded-full text-sm float-right ${
+                      isEventActive ? 'glass-badge' : 'glass-badge glass-badge-inactive'
+                    }`}
+                  >
+                    {isEventActive ? 'Active' : 'Inactive'}
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div 
-                      className="bg-blue-600 h-2.5 rounded-full" 
-                      style={{ width: `${progressPercentage}%` }}
-                    ></div>
-                  </div>
-                  <p className="mt-2 text-sm">
-                    You've earned <span className="font-bold">{userPoints}</span> out of {event.totalPoints} possible points
+                </div>
+              </div>
+            )}
+            
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold mb-2 text-white">{event.title}</h1>
+              <p className="text-gray-300 mb-6">{event.description}</p>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
+                  <FiUsers className="text-light-green mb-1" size={18} />
+                  <p className="text-xs text-gray-400">Creator</p>
+                  <p className="text-sm font-medium truncate text-white">
+                    {event.creator.firstName || event.creator.address.substring(0, 8)}
                   </p>
                 </div>
-              ) : (
-                <button
-                  onClick={handleJoinEvent}
-                  disabled={joiningEvent || !isEventActive}
-                  className={`mt-4 py-2 px-6 rounded text-white font-medium ${
-                    isEventActive 
-                      ? 'bg-blue-600 hover:bg-blue-700 disabled:opacity-70' 
-                      : 'bg-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  {joiningEvent ? 'Joining...' : 'Join Event'}
-                </button>
-              )
-            )}
-          </div>
-        </div>
-        
-        {/* Tasks Section */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-6 border-b">
-            <h2 className="text-xl font-semibold">Tasks</h2>
-            <p className="text-sm text-gray-600">
-              {isCreator 
-                ? 'These are the tasks you created for participants to complete'
-                : hasJoined
-                  ? 'Complete these tasks to earn points'
-                  : 'Join this event to complete tasks and earn points'
-              }
-            </p>
-          </div>
-          
-          {tasks.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              {isCreator 
-                ? (
-                  <div>
-                    <p className="mb-4">No tasks have been added yet</p>
-                    <Link 
-                      href={`/events/${id}/tasks/add`}
-                      className="py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700"
-                    >
-                      Add Your First Task
-                    </Link>
-                  </div>
-                )
-                : 'No tasks available for this event yet'
-              }
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-200">
-              {tasks.map(task => {
-                const userTask = userTasks.find(ut => ut.task._id === task._id)
-                const isCompleted = userTask?.completed || false
-                const isCurrentTaskMessage = taskMessage && taskMessage.id === task._id
-                
-                return (
-                  <li key={task._id} className="p-6">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-start space-x-3">
-                        <div className={`mt-1 flex-shrink-0 w-5 h-5 rounded-full ${
-                          isCompleted ? 'bg-green-500' : 'bg-gray-200'
-                        }`}>
-                          {isCompleted && (
-                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </div>
-                        
-                        <div>
-                          <div className="flex items-center">
-                            <span className={`px-2 py-1 text-xs rounded mr-2 uppercase ${
-                              getPlatformClass(task.platform)
-                            }`}>
-                              {task.platform}
-                            </span>
-                            <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                              {task.taskType}
-                            </span>
-                          </div>
-                          
-                          <h3 className="font-medium mt-1">{task.description}</h3>
-                          
-                          <a 
-                            href={task.linkUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline text-sm block mt-1"
-                          >
-                            View Task Link
-                          </a>
-                          
-                          {isCurrentTaskMessage && (
-                            <div className={`mt-2 text-sm px-3 py-2 rounded ${
-                              taskMessage.type === 'success' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {taskMessage.message}
-                            </div>
-                          )}
-                          
-                          {getTwitterTaskMessage(
-                            task, 
-                            !!(userProfile?.twitterId) // Check if user has Twitter connected
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="text-right">
-                        <span className="font-bold text-lg">{task.pointsValue}</span>
-                        <span className="text-gray-500 text-sm ml-1">pts</span>
-                        
-                        {/* Complete button (only for joined users who haven't completed this task) */}
-                        {hasJoined && !isCreator && !isCompleted && (
-                          <button
-                            onClick={() => handleCompleteTask(task, task._id)}
-                            disabled={completingTask === task._id || !isEventActive}
-                            className={`block ml-auto mt-2 py-1 px-3 rounded text-sm ${
-                              isEventActive
-                                ? 'bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-70'
-                                : 'bg-gray-300 text-gray-700 cursor-not-allowed'
-                            }`}
-                          >
-                            {completingTask === task._id ? 'Verifying...' : 'Complete'}
-                          </button>
-                        )}
-                        
-                        {isCompleted && (
-                          <p className="text-xs text-green-600 mt-1">
-                            Completed {userTask?.completedAt 
-                              ? new Date(userTask.completedAt).toLocaleDateString() 
-                              : ''
-                            }
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
-        
-        {/* Participants Section */}
-        <div className="mt-8 bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-6 border-b">
-            <h2 className="text-xl font-semibold">Participants</h2>
-            <p className="text-gray-600 text-sm">
-              {event.participants.length} user{event.participants.length !== 1 ? 's' : ''} joined this event
-            </p>
-          </div>
-          
-          {event.participants.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              No participants have joined yet
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-200">
-              {event.participants.slice(0, 10).map(participant => (
-                <li key={participant.user._id} className="p-4 flex justify-between items-center">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-700">
-                      {participant.user.firstName?.[0] || participant.user.address.substring(0, 2)}
-                    </div>
-                    <div className="ml-3">
-                      <p className="font-medium">
-                        {participant.user.firstName 
-                          ? `${participant.user.firstName} ${participant.user.lastName || ''}`
-                          : `${participant.user.address.substring(0, 6)}...${participant.user.address.slice(-4)}`
-                        }
+                <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
+                  <FiCalendar className="text-light-green mb-1" size={18} />
+                  <p className="text-xs text-gray-400">Start Date</p>
+                  <p className="text-sm font-medium text-white">{new Date(event.startDate).toLocaleDateString()}</p>
+                </div>
+                <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
+                  <FiClock className="text-light-green mb-1" size={18} />
+                  <p className="text-xs text-gray-400">End Date</p>
+                  <p className="text-sm font-medium text-white">{new Date(event.endDate).toLocaleDateString()}</p>
+                </div>
+                <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
+                  <FiAward className="text-light-green mb-1" size={18} />
+                  <p className="text-xs text-gray-400">Total Points</p>
+                  <p className="text-sm font-medium text-light-green">{event.totalPoints}</p>
+                </div>
+              </div>
+              
+              {/* Join button or progress */}
+              {!isCreator && (
+                hasJoined ? (
+                  <div className="p-4 rounded-xl bg-black/30 border border-light-green/20 backdrop-blur-sm">
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-sm font-medium text-white">Your Progress</p>
+                      <p className="text-sm text-gray-300">
+                        {completedTasks}/{totalTasks} tasks ({Math.round(progressPercentage)}%)
                       </p>
                     </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2.5">
+                      <div 
+                        className="bg-gradient-to-r from-light-green to-dark-green h-2.5 rounded-full" 
+                        style={{ width: `${progressPercentage}%` }}
+                      ></div>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-300">
+                      You've earned <span className="font-bold text-light-green">{userPoints}</span> out of {event.totalPoints} possible points
+                    </p>
                   </div>
-                  <div>
-                    <span className="font-bold">{participant.pointsEarned}</span>
-                    <span className="text-gray-500 text-sm ml-1">pts</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                ) : (
+                  <motion.button
+                    onClick={handleJoinEvent}
+                    disabled={joiningEvent || !isEventActive}
+                    className={`w-full py-2 px-6 rounded-full font-medium ${
+                      isEventActive 
+                        ? 'glass-button bg-gradient-to-r from-light-green to-dark-green text-black disabled:opacity-70' 
+                        : 'glass-button bg-gray-700/50 text-gray-400 cursor-not-allowed'
+                    }`}
+                    whileHover={isEventActive ? { scale: 1.02 } : {}}
+                    whileTap={isEventActive ? { scale: 0.98 } : {}}
+                  >
+                    {joiningEvent ? 'Joining...' : 'Join Event'}
+                  </motion.button>
+                )
+              )}
+            </div>
+          </GlassCard>
+        </motion.div>
+        
+        {/* Tasks Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mt-6"
+        >
+          <GlassCard withBorder>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold gradient-text">Tasks</h2>
+              <p className="text-sm text-gray-400">
+                {isCreator 
+                  ? 'These are the tasks for participants to complete'
+                  : hasJoined
+                    ? 'Complete these tasks to earn points'
+                    : 'Join this event to complete tasks and earn points'
+                }
+              </p>
+            </div>
+            
+            {tasks.length === 0 ? (
+              <div className="text-center py-12 border border-dashed border-gray-700/50 rounded-xl">
+                {isCreator 
+                  ? (
+                    <div>
+                      <p className="mb-4 text-gray-400">No tasks have been added yet</p>
+                      <button 
+                        onClick={() => router.push(`/events/${id}/tasks/add`)}
+                        className="glass-button inline-flex items-center"
+                      >
+                        <FiPlus className="mr-2" /> Add Your First Task
+                      </button>
+                    </div>
+                  )
+                  : <p className="text-gray-400">No tasks available for this event yet</p>
+                }
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {tasks.map(task => {
+                  const userTask = userTasks.find(ut => ut.task._id === task._id)
+                  const isCompleted = userTask?.completed || false
+                  const isCurrentTaskMessage = taskMessage && taskMessage.id === task._id
+                  
+                  return (
+                    <div 
+                      key={task._id}
+                      className={`p-4 rounded-xl border backdrop-blur-sm ${
+                        isCompleted 
+                          ? 'border-light-green/30 bg-light-green/5' 
+                          : task.isRequired
+                            ? 'border-yellow-500/30 bg-yellow-500/5'
+                            : 'border-gray-700/50 bg-black/20'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className={`mt-1 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
+                            isCompleted ? 'bg-light-green/20 border border-light-green/50' : 'bg-gray-700/50'
+                          }`}>
+                            {isCompleted && <FiCheck className="text-light-green" />}
+                          </div>
+                          
+                          <div>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              <span 
+                                className={`px-2 py-1 text-xs rounded-full inline-flex items-center gap-1 ${
+                                  getPlatformClass(task.platform)
+                                }`}
+                              >
+                                {getPlatformIcon(task.platform)}
+                                {task.platform}
+                              </span>
+                              <span className="text-xs bg-gray-700/50 px-2 py-1 rounded-full">
+                                {task.taskType}
+                              </span>
+                              {task.isRequired && (
+                                <span className="text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-1 rounded-full">
+                                  Required
+                                </span>
+                              )}
+                            </div>
+                            
+                            <h3 className="font-medium text-white mb-1">{task.description}</h3>
+                            
+                            <a 
+                              href={task.linkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-400 hover:text-blue-300 text-sm inline-flex items-center gap-1"
+                            >
+                              Open Link <FiExternalLink size={12} />
+                            </a>
+                            
+                            {isCurrentTaskMessage && (
+                              <div className={`mt-3 text-sm px-3 py-2 rounded-lg ${
+                                taskMessage.type === 'success' 
+                                  ? 'bg-green-500/20 border border-green-500/30 text-green-400' 
+                                  : 'bg-red-500/20 border border-red-500/30 text-red-400'
+                              }`}>
+                                {taskMessage.message}
+                              </div>
+                            )}
+                            
+                            {getTwitterTaskMessage(
+                              task, 
+                              !!(userProfile?.twitterId) // Check if user has Twitter connected
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          <span className="font-bold text-lg text-light-green">{task.pointsValue}</span>
+                          <span className="text-gray-400 text-sm ml-1">pts</span>
+                          
+                          {/* Complete button (only for joined users who haven't completed this task) */}
+                          {hasJoined && !isCreator && !isCompleted && (
+                            <motion.button
+                              onClick={() => handleCompleteTask(task, task._id)}
+                              disabled={completingTask === task._id || !isEventActive}
+                              className={`block ml-auto mt-2 py-1 px-3 rounded-full text-sm ${
+                                isEventActive
+                                  ? 'glass-button disabled:opacity-70'
+                                  : 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
+                              }`}
+                              whileHover={isEventActive ? { scale: 1.05 } : {}}
+                              whileTap={isEventActive ? { scale: 0.95 } : {}}
+                            >
+                              {completingTask === task._id ? 'Verifying...' : 'Verify'}
+                            </motion.button>
+                          )}
+                          
+                          {isCompleted && (
+                            <p className="text-xs text-light-green mt-1">
+                              Completed {userTask?.completedAt 
+                                ? new Date(userTask.completedAt).toLocaleDateString() 
+                                : ''
+                              }
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
+        
+        {/* Participants Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="mt-6"
+        >
+          <GlassCard withBorder>
+            <div className="mb-4">
+              <h2 className="text-xl font-bold gradient-text">Participants</h2>
+              <p className="text-gray-400 text-sm">
+                {event.participants.length} user{event.participants.length !== 1 ? 's' : ''} joined this event
+              </p>
+            </div>
+            
+            {event.participants.length === 0 ? (
+              <div className="text-center py-8 border border-dashed border-gray-700/50 rounded-xl">
+                <p className="text-gray-400">No participants have joined yet</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {event.participants.slice(0, 10).map((participant, index) => (
+                  <motion.div 
+                    key={participant.user._id} 
+                    className="p-3 flex justify-between items-center rounded-xl bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-colors"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: 0.1 + (index * 0.05) }}
+                  >
+                    <div className="flex items-center">
+                      <div 
+                        className="w-10 h-10 rounded-full glass-avatar flex items-center justify-center text-light-green"
+                      >
+                        {participant.user.firstName?.[0]?.toUpperCase() || participant.user.address.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div className="ml-3">
+                        <p className="font-medium text-white">
+                          {participant.user.firstName 
+                            ? `${participant.user.firstName} ${participant.user.lastName || ''}`
+                            : `${participant.user.address.substring(0, 6)}...${participant.user.address.slice(-4)}`
+                          }
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {participant.user.address.substring(0, 6)}...{participant.user.address.slice(-4)}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-light-green">{participant.pointsEarned}</span>
+                      <span className="text-gray-400 text-sm ml-1">pts</span>
+                    </div>
+                  </motion.div>
+                ))}
+                
+                {event.participants.length > 10 && (
+                  <p className="text-center text-sm text-gray-400 py-2">
+                    + {event.participants.length - 10} more participants
+                  </p>
+                )}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
       </div>
-    </div>
+    </PageWrapper>
   )
 }
 
 function getPlatformClass(platform: string): string {
   switch (platform) {
-    case 'twitter': return 'bg-blue-100 text-blue-800';
-    case 'instagram': return 'bg-purple-100 text-purple-800';
-    case 'facebook': return 'bg-indigo-100 text-indigo-800';
-    case 'discord': return 'bg-indigo-100 text-indigo-800';
-    case 'telegram': return 'bg-blue-100 text-blue-800';
-    default: return 'bg-gray-100 text-gray-800';
+    case 'twitter': return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
+    case 'instagram': return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
+    case 'facebook': return 'bg-blue-700/20 text-blue-400 border border-blue-700/30';
+    case 'discord': return 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30';
+    case 'telegram': return 'bg-blue-400/20 text-blue-400 border border-blue-400/30';
+    default: return 'bg-gray-600/20 text-gray-400 border border-gray-600/30';
   }
 }
 
-// Add this helper function to get platform icon
 function getPlatformIcon(platform: string) {
   switch (platform) {
-    case 'twitter': return <FaTwitter className="text-blue-400" />;
-    case 'instagram': return <FaInstagram className="text-purple-500" />;
-    case 'facebook': return <FaFacebookF className="text-blue-600" />;
-    case 'discord': return <FaDiscord className="text-indigo-500" />;
-    case 'telegram': return <FaTelegram className="text-blue-500" />;
+    case 'twitter': return <FaTwitter className="text-blue-400" size={12} />;
+    case 'instagram': return <FaInstagram className="text-purple-400" size={12} />;
+    case 'facebook': return <FaFacebookF className="text-blue-400" size={12} />;
+    case 'discord': return <FaDiscord className="text-indigo-400" size={12} />;
+    case 'telegram': return <FaTelegram className="text-blue-400" size={12} />;
     default: return null;
   }
 }
 
-// Add this function to get a message for Twitter tasks
 function getTwitterTaskMessage(task: Task, userHasTwitterConnected: boolean) {
   if (task.platform !== 'twitter') return null;
   
   if (!userHasTwitterConnected) {
     return (
-      <div className="mt-2 text-xs bg-yellow-50 p-2 rounded border border-yellow-200">
-        <p className="flex items-center text-yellow-700">
+      <div className="mt-2 text-xs bg-yellow-500/10 p-2 rounded-lg border border-yellow-500/30">
+        <p className="flex items-center text-yellow-400">
           <FaTwitter className="mr-1 text-blue-400" /> 
           This task requires a connected Twitter account. 
-          <Link href="/profile" className="ml-1 text-blue-500 hover:underline">
+          <Link href="/profile" className="ml-1 text-blue-400 hover:underline">
             Connect your account
           </Link>
         </p>
@@ -619,8 +712,8 @@ function getTwitterTaskMessage(task: Task, userHasTwitterConnected: boolean) {
     : 'Retweet the post';
     
   return (
-    <div className="mt-2 text-xs bg-blue-50 p-2 rounded border border-blue-200">
-      <p className="text-blue-700">
+    <div className="mt-2 text-xs bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
+      <p className="text-blue-400">
         <span className="font-medium">{actionText}</span> and click "Verify" to automatically confirm completion.
       </p>
     </div>

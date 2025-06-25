@@ -1,9 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
+import { FiArrowLeft, FiImage, FiCalendar, FiEdit3 } from 'react-icons/fi'
+import { PageWrapper } from '@/components/ui/page-wrapper'
+import { GlassCard } from '@/components/ui/glass-card'
+import { motion } from 'framer-motion'
 
 export default function CreateEventPage() {
   const router = useRouter()
@@ -18,6 +22,12 @@ export default function CreateEventPage() {
     endDate: '', 
     imageUrl: ''
   })
+
+  useEffect(() => {
+    if (!isConnected) {
+      router.push('/login')
+    }
+  }, [isConnected, router])
   
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -91,35 +101,35 @@ export default function CreateEventPage() {
       setIsSubmitting(false)
     }
   }
-  
-  if (!isConnected) {
-    router.push('/login')
-    return null
-  }
 
   return (
-    <div className="min-h-screen p-8">
+    <PageWrapper>
       <div className="max-w-3xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Create New Event</h1>
-          <Link 
-            href="/dashboard" 
-            className="py-2 px-4 bg-gray-600 text-white rounded hover:bg-gray-700"
+        <motion.div 
+          className="flex justify-between items-center mb-8 gap-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <h1 className="text-3xl font-bold gradient-text">Create New Event</h1>
+          <button 
+            onClick={() => router.push('/dashboard')}
+            className="glass-button inline-flex items-center"
           >
-            Back to Dashboard
-          </Link>
-        </div>
+            <FiArrowLeft className="mr-2" /> Back to Dashboard
+          </button>
+        </motion.div>
         
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <GlassCard animate withBorder highlight className="mb-6">
           {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl">
               {error}
             </div>
           )}
           
           <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="title">
+            <div className="mb-6">
+              <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="title">
                 Event Title *
               </label>
               <input
@@ -128,14 +138,14 @@ export default function CreateEventPage() {
                 type="text"
                 value={formData.title}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="glass-input w-full"
                 placeholder="Enter a title for your event"
                 required
               />
             </div>
             
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
+            <div className="mb-6">
+              <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="description">
                 Description *
               </label>
               <textarea
@@ -143,15 +153,16 @@ export default function CreateEventPage() {
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+                className="glass-input w-full h-32 resize-none"
                 placeholder="Describe your event and what participants will gain from it"
                 required
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="startDate">
+                <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="startDate">
+                  <FiCalendar className="inline-block mr-2" />
                   Start Date
                 </label>
                 <input
@@ -160,13 +171,14 @@ export default function CreateEventPage() {
                   type="date"
                   value={formData.startDate}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="glass-input w-full"
                 />
-                <p className="text-xs text-gray-500 mt-1">Defaults to today if not specified</p>
+                <p className="text-xs text-gray-400 mt-1">Defaults to today if not specified</p>
               </div>
               
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="endDate">
+                <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="endDate">
+                  <FiCalendar className="inline-block mr-2" />
                   End Date *
                 </label>
                 <input
@@ -175,14 +187,15 @@ export default function CreateEventPage() {
                   type="date"
                   value={formData.endDate}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="glass-input w-full"
                   required
                 />
               </div>
             </div>
             
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="imageUrl">
+              <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="imageUrl">
+                <FiImage className="inline-block mr-2" />
                 Cover Image URL
               </label>
               <input
@@ -191,35 +204,44 @@ export default function CreateEventPage() {
                 type="url"
                 value={formData.imageUrl}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="glass-input w-full"
                 placeholder="https://example.com/image.jpg"
               />
-              <p className="text-xs text-gray-500 mt-1">Optional: Add an image URL for your event</p>
+              <p className="text-xs text-gray-400 mt-1">Optional: Add an image URL for your event</p>
             </div>
             
             <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-400">
                 * Required fields
               </p>
-              <button
+              <motion.button
                 type="submit"
                 disabled={isSubmitting}
-                className="py-2 px-6 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                className="glass-button bg-gradient-to-r from-light-green to-dark-green text-black"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
               >
                 {isSubmitting ? 'Creating...' : 'Create Event'}
-              </button>
+              </motion.button>
             </div>
           </form>
-        </div>
+        </GlassCard>
         
-        <div className="mt-8 bg-blue-50 p-4 rounded-lg">
-          <h3 className="font-semibold mb-2">What happens next?</h3>
-          <p className="text-sm text-gray-700">
-            After creating your event, you'll be able to add tasks for participants to complete.
-            Each task can have its own point value and will contribute to the overall event points.
-          </p>
-        </div>
+        <GlassCard animate withBorder className="mb-6">
+          <div className="flex items-start">
+            <div className="p-2 bg-blue-500/20 rounded-full mr-4">
+              <FiEdit3 className="text-blue-400" size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-2">What happens next?</h3>
+              <p className="text-gray-300">
+                After creating your event, you'll be able to add tasks for participants to complete.
+                Each task can have its own point value and will contribute to the overall event points.
+              </p>
+            </div>
+          </div>
+        </GlassCard>
       </div>
-    </div>
+    </PageWrapper>
   )
 }

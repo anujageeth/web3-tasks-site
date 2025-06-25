@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { FaTwitter } from 'react-icons/fa'
+import { PageWrapper } from '@/components/ui/page-wrapper'
+import { GlassCard } from '@/components/ui/glass-card'
+import { motion } from 'framer-motion'
 
 interface ProfileData {
   firstName: string;
@@ -22,6 +25,7 @@ export default function ProfilePage() {
   const { isConnected } = useAccount()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [connectingTwitter, setConnectingTwitter] = useState(false)
   const [disconnectingTwitter, setDisconnectingTwitter] = useState(false)
   const [profileData, setProfileData] = useState<ProfileData>({
     firstName: '',
@@ -45,73 +49,105 @@ export default function ProfilePage() {
     
     if (urlError) {
       setError(urlError)
+      
+      // Clear error from URL - prevents it from showing again on refresh
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('error');
+      window.history.replaceState({}, '', newUrl);
     }
     
     if (urlSuccess) {
       setSuccess(urlSuccess)
+      
+      // Clear success from URL - prevents it from showing again on refresh
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('success');
+      window.history.replaceState({}, '', newUrl);
+      
+      // Refresh profile data to show connected account
+      fetchProfileData();
     }
   }, [searchParams])
 
   // Load profile data
+  const fetchProfileData = async () => {
+    try {
+      const res = await fetch('/api/profile')
+      
+      if (!res.ok) {
+        throw new Error(`Failed to load profile: ${res.status}`)
+      }
+      
+      const data = await res.json()
+      
+      setProfileData({
+        firstName: data.firstName || '',
+        lastName: data.lastName || '',
+        email: data.email || '',
+        address: data.address || '',
+        lastLogin: data.lastLogin,
+        twitterConnected: !!data.twitterId,
+        twitterUsername: data.twitterUsername
+      })
+      
+      setLoading(false)
+    } catch (err: any) {
+      console.error('Error loading profile:', err)
+      setError('Failed to load profile. Please try again later.')
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!isConnected) {
       router.push('/login')
       return
     }
     
-    // Fetch profile data
-    fetch('/api/profile')
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`Failed to load profile: ${res.status}`)
-        }
-        return res.json()
-      })
-      .then(data => {
-        setProfileData({
-          firstName: data.firstName || '',
-          lastName: data.lastName || '',
-          email: data.email || '',
-          address: data.address || '',
-          lastLogin: data.lastLogin,
-          twitterConnected: !!data.twitterId,
-          twitterUsername: data.twitterUsername
-        })
-        setLoading(false)
-      })
-      .catch(err => {
-        console.error('Error loading profile:', err)
-        setError('Failed to load profile. Please try again later.')
-        setLoading(false)
-      })
+    fetchProfileData()
   }, [isConnected, router])
 
   // Connect Twitter account
   const handleConnectTwitter = async () => {
+    setError(null);
+    setConnectingTwitter(true);
+    
     try {
       const res = await fetch('/api/twitter/auth')
       
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.message || 'Failed to initiate Twitter authentication')
+        const errorData = await res.json()
+        throw new Error(errorData.message || 'Failed to initiate Twitter authentication')
       }
       
       const { authUrl } = await res.json()
+      
+      if (!authUrl) {
+        throw new Error('No Twitter authentication URL returned')
+      }
+      
+      console.log('Redirecting to Twitter auth URL:', authUrl);
       
       // Redirect to Twitter auth page
       window.location.href = authUrl
     } catch (err: any) {
       console.error('Error connecting Twitter:', err)
-      setError(err.message || 'Failed to connect Twitter account')
+      setError(`Twitter connection failed: ${err.message}`)
+      setConnectingTwitter(false)
     }
   }
   
   // Disconnect Twitter account
   const handleDisconnectTwitter = async () => {
     setDisconnectingTwitter(true)
+    setError(null)
+    
     try {
       const res = await fetch('/api/twitter/disconnect', {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       })
       
       if (!res.ok) {
@@ -221,43 +257,57 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen p-8 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg">Loading profile...</p>
-        </div>
-      </div>
+      <PageWrapper className="flex items-center justify-center">
+        <motion.div 
+          className="text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <p className="text-lg text-white">Loading profile...</p>
+          <div className="mt-4 h-2 w-40 mx-auto bg-gray-700 overflow-hidden rounded-full">
+            <motion.div
+              className="h-full bg-gradient-to-r from-light-green to-dark-green"
+              initial={{ width: "0%" }}
+              animate={{ width: "100%" }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+          </div>
+        </motion.div>
+      </PageWrapper>
     )
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <PageWrapper>
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Your Profile</h1>
-          <Link 
-            href="/dashboard" 
-            className="py-2 px-4 bg-gray-600 text-white rounded hover:bg-gray-700"
+          <motion.h1 
+            className="text-4xl font-bold gradient-text"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
           >
-            Back to Dashboard
-          </Link>
+            Your Profile
+          </motion.h1>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <GlassCard className="mb-6" animate withBorder>
           {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl">
               {error}
             </div>
           )}
           
           {success && (
-            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+            <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 text-green-400 rounded-xl">
               {success}
             </div>
           )}
           
           <form onSubmit={handleSubmit}>
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="address">
+              <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="address">
                 Wallet Address
               </label>
               <input
@@ -266,14 +316,14 @@ export default function ProfilePage() {
                 type="text"
                 value={profileData.address}
                 disabled
-                className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-100 text-gray-500"
+                className="glass-input w-full text-gray-400"
               />
-              <p className="text-sm text-gray-500 mt-1">Your blockchain address cannot be changed</p>
+              <p className="text-sm text-gray-400 mt-1">Your blockchain address cannot be changed</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="firstName">
+                <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="firstName">
                   First Name
                 </label>
                 <input
@@ -282,7 +332,7 @@ export default function ProfilePage() {
                   type="text"
                   value={profileData.firstName}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border ${errors.firstName ? 'border-red-500' : 'border-gray-300'} rounded focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  className={`glass-input w-full ${errors.firstName ? 'border-red-500' : ''}`}
                   placeholder="Enter your first name"
                 />
                 {errors.firstName && (
@@ -291,7 +341,7 @@ export default function ProfilePage() {
               </div>
               
               <div>
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="lastName">
+                <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="lastName">
                   Last Name
                 </label>
                 <input
@@ -300,7 +350,7 @@ export default function ProfilePage() {
                   type="text"
                   value={profileData.lastName}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border ${errors.lastName ? 'border-red-500' : 'border-gray-300'} rounded focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  className={`glass-input w-full ${errors.lastName ? 'border-red-500' : ''}`}
                   placeholder="Enter your last name"
                 />
                 {errors.lastName && (
@@ -310,7 +360,7 @@ export default function ProfilePage() {
             </div>
             
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
+              <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="email">
                 Email Address
               </label>
               <input
@@ -319,7 +369,7 @@ export default function ProfilePage() {
                 type="email"
                 value={profileData.email}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                className={`glass-input w-full ${errors.email ? 'border-red-500' : ''}`}
                 placeholder="Enter your email address"
               />
               {errors.email && (
@@ -328,56 +378,67 @@ export default function ProfilePage() {
             </div>
             
             <div className="flex justify-end">
-              <button
+              <motion.button
                 type="submit"
                 disabled={saving}
-                className="py-2 px-6 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                className="glass-button bg-gradient-to-r from-green-500/30 to-green-700/30 text-light-green border-green-500/30"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
               >
                 {saving ? 'Saving...' : 'Save Changes'}
-              </button>
+              </motion.button>
             </div>
           </form>
-        </div>
+        </GlassCard>
         
         {/* Social accounts section */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Connected Social Accounts</h2>
-          <div className="border-b pb-4 mb-4">
+        <GlassCard animate withBorder highlight>
+          <h2 className="text-xl font-semibold mb-4 text-white">Connected Social Accounts</h2>
+          <div className="border-b border-gray-700/50 pb-4 mb-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center">
                 <FaTwitter className="text-blue-400 text-xl mr-3" />
                 <div>
-                  <p className="font-medium">Twitter</p>
+                  <p className="font-medium text-white">Twitter</p>
                   {profileData.twitterConnected ? (
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-300">
                       Connected as @{profileData.twitterUsername}
                     </p>
                   ) : (
-                    <p className="text-sm text-gray-500">Not connected</p>
+                    <p className="text-sm text-gray-400">Not connected</p>
                   )}
                 </div>
               </div>
               
               {profileData.twitterConnected ? (
-                <button
+                <motion.button
                   onClick={handleDisconnectTwitter}
                   disabled={disconnectingTwitter}
-                  className="px-3 py-1 border border-red-500 text-red-500 rounded hover:bg-red-50 text-sm disabled:opacity-50"
+                  className="glass-button bg-red-500/10 border-red-500/30 text-red-400"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   {disconnectingTwitter ? 'Disconnecting...' : 'Disconnect'}
-                </button>
+                </motion.button>
               ) : (
-                <button
+                <motion.button
                   onClick={handleConnectTwitter}
-                  className="px-3 py-1 bg-blue-400 text-white rounded hover:bg-blue-500 text-sm flex items-center"
+                  disabled={connectingTwitter}
+                  className="glass-button bg-blue-500/20 text-blue-400 border-blue-500/30 flex items-center"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <FaTwitter className="mr-1" /> Connect Twitter
-                </button>
+                  {connectingTwitter ? 'Connecting...' : (
+                    <>
+                      <FaTwitter className="mr-1" /> Connect Twitter
+                    </>
+                  )}
+                </motion.button>
               )}
             </div>
           </div>
           
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-300">
             <p className="mb-2">
               <strong>Why connect your accounts?</strong>
             </p>
@@ -386,8 +447,8 @@ export default function ProfilePage() {
               This means you can earn points instantly without manual verification.
             </p>
           </div>
-        </div>
+        </GlassCard>
       </div>
-    </div>
+    </PageWrapper>
   )
 }
