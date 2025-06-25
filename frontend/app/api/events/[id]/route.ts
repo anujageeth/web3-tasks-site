@@ -1,105 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-export async function GET(
+export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    const eventId = params.id;
+    const { id } = context.params;
+    const cookieStore = await cookies(); // cookies() is async in Next.js 15
+    const token = cookieStore.get('token')?.value;
+    
+    if (!token) {
+      return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
+    }
     
     // Forward to backend
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
-    const response = await fetch(`${backendUrl}/api/events/${eventId}`, {
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { message: 'Failed to get event' }, 
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json({ message: 'Server error' }, { status: 500 });
-  }
-}
-
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const token = cookieStore.get('token')?.value;
-    
-    if (!token) {
-      return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
-    }
-
-    const eventId = params.id;
-    const eventData = await request.json();
-    
-    // Forward to backend with cookie
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
-    const response = await fetch(`${backendUrl}/api/events/${eventId}`, {
-      method: 'PUT',
+    const response = await fetch(`${backendUrl}/api/events/${id}/join`, {
+      method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Cookie': `token=${token}`
-      },
-      body: JSON.stringify(eventData),
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { message: 'Failed to update event' }, 
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json({ message: 'Server error' }, { status: 500 });
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const token = cookieStore.get('token')?.value;
-    
-    if (!token) {
-      return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
-    }
-
-    const eventId = params.id;
-    
-    // Forward to backend with cookie
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
-    const response = await fetch(`${backendUrl}/api/events/${eventId}`, {
-      method: 'DELETE',
-      headers: {
-        'Cookie': `token=${token}`
+        'Cookie': `token=${token}`,
+        'Content-Type': 'application/json'
       },
       credentials: 'include'
     });
 
     if (!response.ok) {
-      return NextResponse.json(
-        { message: 'Failed to delete event' }, 
-        { status: response.status }
-      );
+      let errorMessage = 'Failed to join event';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } catch (e) {
+        console.error('Could not parse error response:', e);
+      }
+      
+      return NextResponse.json({ message: errorMessage }, { status: response.status });
     }
 
     const data = await response.json();
