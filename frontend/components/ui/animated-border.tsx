@@ -22,7 +22,7 @@ export const AnimatedBorder = ({
   containerClassName,
   duration = 8,
   borderWidth = 1,
-  borderGradient = "linear-gradient(to right, #4ade80, #143d25)",
+  borderGradient = "linear-gradient(to right,rgb(0, 255, 94), #143d25)",
   animate = true,
   onClick,
   as: Tag = "div",

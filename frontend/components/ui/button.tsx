@@ -4,6 +4,7 @@ import { forwardRef, ButtonHTMLAttributes } from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { GlowingBorder } from "@/components/ui/glowing-border";
 
 const buttonVariants = tv({
   base: "relative inline-flex items-center justify-center whitespace-nowrap rounded-lg font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
@@ -55,13 +56,14 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   animate?: boolean;
+  glowOnHover?: boolean;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, glowing, gradient, animate = false, ...props }, ref) => {
+  ({ className, variant, size, glowing, gradient, animate = false, glowOnHover = true, ...props }, ref) => {
     const Component = animate ? motion.button : "button";
     
-    return (
+    const buttonContent = (
       <Component
         ref={ref}
         className={cn(buttonVariants({ variant, size, glowing, gradient, className }))}
@@ -72,6 +74,20 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       />
     );
+    
+    if (glowOnHover) {
+      return (
+        <GlowingBorder 
+          glowColor="rgba(74, 222, 128, 0.4)" 
+          glowSize={15}
+          borderRadius="9999px"
+        >
+          {buttonContent}
+        </GlowingBorder>
+      );
+    }
+    
+    return buttonContent;
   }
 );
 

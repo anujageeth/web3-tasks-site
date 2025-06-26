@@ -224,3 +224,47 @@ input:focus, textarea:focus, select:focus {
   border: 1px solid rgba(74, 222, 128, 0.3);
   box-shadow: 0 0 10px rgba(74, 222, 128, 0.2);
 }
+
+/* Add this to the end of your globals.css file */
+
+@keyframes glow-animation {
+  0% {
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(74, 222, 128, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
+  }
+}
+
+.animate-glow {
+  animation: glow-animation 2s infinite;
+}
+
+/* Add hover glow effect to glass cards */
+.glass-card:hover {
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.4),
+    0 0 15px rgba(74, 222, 128, 0.4);
+  border-color: rgba(74, 222, 128, 0.4);
+}
+
+/* Add cursor glow effect */
+.cursor-glow {
+  pointer-events: none;
+  position: fixed;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(74, 222, 128, 0.5) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cursor-glow.visible {
+  opacity: 1;
+}

@@ -6,12 +6,130 @@ const UserTask = require('../models/UserTask');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
+function extractUsernameFromUrl(url, platform) {
+  try {
+    const urlObj = new URL(url);
+    
+    if (platform === 'twitter' || platform === 'x') {
+      // Extract username from twitter.com/username or x.com/username
+      const pathParts = urlObj.pathname.split('/').filter(Boolean);
+      return pathParts.length > 0 ? pathParts[0] : null;
+    }
+    
+    if (platform === 'youtube') {
+      // Extract from youtube.com/@username
+      const pathParts = urlObj.pathname.split('/').filter(Boolean);
+      return pathParts.length > 0 ? pathParts[0].replace(/^@/, '') : null;
+    }
+    
+    if (platform === 'instagram') {
+      // Extract from instagram.com/username
+      const pathParts = urlObj.pathname.split('/').filter(Boolean);
+      return pathParts.length > 0 ? pathParts[0] : null;
+    }
+    
+    if (platform === 'facebook') {
+      // Extract from facebook.com/pagename
+      const pathParts = urlObj.pathname.split('/').filter(Boolean);
+      return pathParts.length > 0 ? pathParts[0] : null;
+    }
+    
+    if (platform === 'telegram') {
+      // Extract from t.me/channelname
+      const pathParts = urlObj.pathname.split('/').filter(Boolean);
+      return pathParts.length > 0 ? pathParts[0] : null;
+    }
+    
+    return null;
+  } catch (e) {
+    console.error('Error extracting username from URL:', e);
+    return null;
+  }
+}
+
+// Helper function to generate default task descriptions
+function getDefaultTaskDescription(taskType, platform, customPlatform = '', linkUrl = '') {
+  // Use linkUrl instead of url variable which was undefined
+  const username = linkUrl ? extractUsernameFromUrl(linkUrl, platform) : null;
+  const usernameText = username ? `@${username}` : '';
+  
+  // Handle Twitter tasks
+  if (platform === 'twitter') {
+    if (taskType === 'follow') return `Follow ${usernameText || 'the account'} on Twitter`;
+    if (taskType === 'like') return 'Like the tweet';
+    if (taskType === 'repost') return 'Retweet the post';
+    if (taskType === 'comment') return 'Comment on the tweet';
+    return `${taskType.charAt(0).toUpperCase() + taskType.slice(1)} on Twitter`;
+  }
+  
+  // Handle YouTube tasks
+  if (platform === 'youtube') {
+    if (taskType === 'subscribe') return `Subscribe to ${usernameText} on YouTube`;
+    if (taskType === 'like_video') return 'Like the YouTube video';
+    if (taskType === 'comment_video') return 'Comment on the YouTube video';
+    return `${taskType.charAt(0).toUpperCase() + taskType.slice(1)} on YouTube`;
+  }
+  
+  // Handle Instagram tasks
+  if (platform === 'instagram') {
+    if (taskType === 'follow') return `Follow ${usernameText} on Instagram`;
+    if (taskType === 'like_post') return 'Like the Instagram post';
+    if (taskType === 'comment_post') return 'Comment on the Instagram post';
+    return `${taskType.charAt(0).toUpperCase() + taskType.slice(1)} on Instagram`;
+  }
+  
+  // Handle Telegram tasks
+  if (platform === 'telegram') {
+    if (taskType === 'join_channel') return `Join ${usernameText} Telegram channel`;
+    if (taskType === 'join_group') return `Join ${usernameText} Telegram group`;
+    if (taskType === 'start_bot') return `Start the ${usernameText} Telegram bot`;
+    return `${taskType.charAt(0).toUpperCase() + taskType.slice(1)} on Telegram`;
+  }
+  
+  // Handle YouTube tasks
+  if (platform === 'youtube') {
+    if (taskType === 'subscribe') return 'Subscribe to the YouTube channel';
+    if (taskType === 'like_video') return 'Like the YouTube video';
+    if (taskType === 'comment_video') return 'Comment on the YouTube video';
+    return `${taskType.charAt(0).toUpperCase() + taskType.slice(1)} on YouTube`;
+  }
+  
+  // Handle Instagram tasks
+  if (platform === 'instagram') {
+    if (taskType === 'follow') return 'Follow the Instagram account';
+    if (taskType === 'like_post') return 'Like the Instagram post';
+    if (taskType === 'comment_post') return 'Comment on the Instagram post';
+    return `${taskType.charAt(0).toUpperCase() + taskType.slice(1)} on Instagram`;
+  }
+  
+  // Handle Facebook tasks
+  if (platform === 'facebook') {
+    if (taskType === 'follow_page') return 'Follow the Facebook page';
+    if (taskType === 'like_post') return 'Like the Facebook post';
+    if (taskType === 'comment_post') return 'Comment on the Facebook post';
+    return `${taskType.charAt(0).toUpperCase() + taskType.slice(1)} on Facebook`;
+  }
+  
+  // Handle Website tasks
+  if (platform === 'website') {
+    return 'Visit the website';
+  }
+  
+  // Handle custom platforms
+  if (platform === 'other' && customPlatform) {
+    return `Complete the ${taskType} task on ${customPlatform}`;
+  }
+  
+  // Generic fallback
+  return `Complete the ${taskType} task`;
+}
+
 // Add task to an event
 router.post('/', auth, async (req, res) => {
   try {
-    const { eventId, taskType, platform, description, pointsValue, linkUrl, isRequired } = req.body;
+    const { eventId, taskType, platform, description, pointsValue, linkUrl, isRequired, customPlatform } = req.body;
     
-    if (!eventId || !taskType || !platform || !description || !pointsValue || !linkUrl) {
+    if (!eventId || !taskType || !platform || !pointsValue || !linkUrl) {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
     
@@ -26,11 +144,12 @@ router.post('/', auth, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to add tasks to this event' });
     }
     
+    // Create the task with the proper platform name
     const task = new Task({
       event: eventId,
       taskType,
-      platform,
-      description,
+      platform, // Use the standard platform or 'other'
+      description: description || getDefaultTaskDescription(taskType, platform, customPlatform, linkUrl),
       pointsValue: Number(pointsValue),
       linkUrl,
       isRequired: Boolean(isRequired)
@@ -60,6 +179,19 @@ router.post('/', auth, async (req, res) => {
     res.status(201).json(task);
   } catch (error) {
     console.error('Add task error:', error);
+    
+    // Return specific validation errors if present
+    if (error.name === 'ValidationError') {
+      const validationErrors = {};
+      for (const field in error.errors) {
+        validationErrors[field] = error.errors[field].message;
+      }
+      return res.status(400).json({ 
+        message: 'Validation error', 
+        errors: validationErrors 
+      });
+    }
+    
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -163,7 +295,7 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Mark task as completed by user
+// Complete a task by ID
 router.post('/:id/complete', auth, async (req, res) => {
   try {
     const { proof } = req.body; // Optional proof of completion
@@ -182,7 +314,14 @@ router.post('/:id/complete', auth, async (req, res) => {
     });
     
     if (!userTask) {
-      return res.status(404).json({ message: 'You have not joined this event' });
+      // If user task doesn't exist, create one (this happens for new participants)
+      userTask = new UserTask({
+        user: req.user._id,
+        task: task._id,
+        event: task.event,
+        completed: false
+      });
+      await userTask.save();
     }
     
     if (userTask.completed) {
@@ -202,7 +341,14 @@ router.post('/:id/complete', auth, async (req, res) => {
     userTask.pointsEarned = task.pointsValue;
     
     if (proof) {
-      userTask.verificationData = { proof };
+      userTask.verificationData = { proof, timestamp: Date.now() };
+    } else {
+      userTask.verificationData = { 
+        method: 'self_verification', 
+        platform: task.platform,
+        taskType: task.taskType,
+        timestamp: Date.now() 
+      };
     }
     
     await userTask.save();
@@ -245,6 +391,37 @@ router.get('/user/event/:eventId', auth, async (req, res) => {
     res.json(userTasks);
   } catch (error) {
     console.error('Get user tasks error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get task history for current user
+router.get('/history', auth, async (req, res) => {
+  try {
+    // Get completed tasks for this user
+    const userTasks = await UserTask.find({
+      user: req.user._id,
+      completed: true
+    })
+    .populate('task event')
+    .sort({ completedAt: -1 });
+    
+    // Format the response
+    const taskHistory = userTasks.map(ut => ({
+      _id: ut._id,
+      eventId: ut.event._id,
+      eventTitle: ut.event.title,
+      taskId: ut.task._id,
+      taskType: ut.task.taskType,
+      platform: ut.task.platform,
+      description: ut.task.description,
+      pointsEarned: ut.pointsEarned,
+      completedAt: ut.completedAt
+    }));
+    
+    res.json(taskHistory);
+  } catch (error) {
+    console.error('Get task history error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

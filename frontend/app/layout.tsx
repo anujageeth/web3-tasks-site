@@ -4,6 +4,7 @@ import './globals.css'
 import { headers } from 'next/headers'
 import ContextProvider from '@/context'
 import { AppNav } from '@/components/app-nav'
+import { CursorGlow } from "@/components/ui/cursor-glow";
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -30,6 +31,7 @@ export default async function RootLayout({
           {children}
           <AppNav />
         </ContextProvider>
+        <CursorGlow />
       </body>
     </html>
   )

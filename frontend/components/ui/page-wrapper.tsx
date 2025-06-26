@@ -46,7 +46,7 @@ export const PageWrapper = ({
       <motion.div
         className="pointer-events-none fixed inset-0 z-[-1]"
         style={{
-          background: `radial-gradient(circle at 50% 50%, rgb(18, 142, 70, 0.3), rgba(10, 10, 10, 0) 60%)`,
+          background: `radial-gradient(circle at 50% 50%, rgb(18, 142, 70, 0.7), rgba(10, 10, 10, 0) 50%)`,
           transform: "translate(-50%, -50%)",
           x,
           y,

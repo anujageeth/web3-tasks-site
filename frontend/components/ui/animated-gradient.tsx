@@ -43,7 +43,7 @@ export const AnimatedGradient = ({
       <motion.div
         className="pointer-events-none absolute -inset-[100%] opacity-50"
         style={{
-          background: `radial-gradient(circle at 50% 50%, rgb(18, 142, 70), rgb(10, 10, 10) 20%)`,
+          background: `radial-gradient(circle at 25% 75%, rgb(0, 211, 88), rgb(10, 10, 10) 50%)`,
           transform: "translate(-50%, -50%)",
           x,
           y,

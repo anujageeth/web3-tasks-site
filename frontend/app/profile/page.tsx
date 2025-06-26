@@ -5,42 +5,65 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { FaTwitter } from 'react-icons/fa'
+import { FiArrowLeft, FiCalendar, FiAward, FiEdit, FiUser, FiExternalLink } from 'react-icons/fi'
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
+import { Button } from '@/components/ui/button'
+import { GlowingBorder } from '@/components/ui/glowing-border'
+import { CursorGlow } from '@/components/ui/cursor-glow'
 import { motion } from 'framer-motion'
 
 interface ProfileData {
+  _id: string;
   firstName: string;
   lastName: string;
   email: string;
   address: string;
   lastLogin?: Date;
+  createdAt: string;
   twitterConnected: boolean;
   twitterUsername?: string;
+  totalPoints: number;
+  createdEvents: number;
+  joinedEvents: number;
+}
+
+interface TaskHistory {
+  _id: string;
+  eventId: string;
+  eventTitle: string;
+  taskId: string;
+  taskType: string;
+  platform: string;
+  description: string;
+  pointsEarned: number;
+  completedAt: string;
+}
+
+interface CreatedEvent {
+  _id: string;
+  title: string;
+  description: string;
+  isActive: boolean;
+  startDate: string;
+  endDate: string;
+  totalPoints: number;
+  participants: Array<any>;
 }
 
 export default function ProfilePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { isConnected } = useAccount()
+  const { address: userAddress, isConnected } = useAccount()
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [connectingTwitter, setConnectingTwitter] = useState(false)
   const [disconnectingTwitter, setDisconnectingTwitter] = useState(false)
-  const [profileData, setProfileData] = useState<ProfileData>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    address: '',
-    twitterConnected: false
-  })
+  const [profileData, setProfileData] = useState<ProfileData | null>(null)
+  const [taskHistory, setTaskHistory] = useState<TaskHistory[]>([])
+  const [createdEvents, setCreatedEvents] = useState<CreatedEvent[]>([])
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [errors, setErrors] = useState({
-    firstName: '',
-    lastName: '',
-    email: ''
-  })
+  const [historyType, setHistoryType] = useState<'completed' | 'created'>('completed')
 
   // Get success/error messages from URL parameters
   useEffect(() => {
@@ -81,16 +104,25 @@ export default function ProfilePage() {
       const data = await res.json()
       
       setProfileData({
+        _id: data._id,
         firstName: data.firstName || '',
         lastName: data.lastName || '',
         email: data.email || '',
         address: data.address || '',
+        createdAt: data.createdAt,
         lastLogin: data.lastLogin,
         twitterConnected: !!data.twitterId,
-        twitterUsername: data.twitterUsername
+        twitterUsername: data.twitterUsername,
+        totalPoints: data.totalPoints || 0,
+        createdEvents: data.createdEvents?.length || 0,
+        joinedEvents: data.joinedEvents?.length || 0
       })
       
       setLoading(false)
+      
+      // Now fetch the task history and created events
+      fetchTaskHistory()
+      fetchCreatedEvents()
     } catch (err: any) {
       console.error('Error loading profile:', err)
       setError('Failed to load profile. Please try again later.')
@@ -106,6 +138,32 @@ export default function ProfilePage() {
     
     fetchProfileData()
   }, [isConnected, router])
+  
+  // Fetch task history
+  const fetchTaskHistory = async () => {
+    try {
+      const res = await fetch('/api/tasks/history')
+      if (res.ok) {
+        const data = await res.json()
+        setTaskHistory(data)
+      }
+    } catch (err) {
+      console.error('Error fetching task history:', err)
+    }
+  }
+  
+  // Fetch created events
+  const fetchCreatedEvents = async () => {
+    try {
+      const res = await fetch('/api/events/user/created')
+      if (res.ok) {
+        const data = await res.json()
+        setCreatedEvents(data)
+      }
+    } catch (err) {
+      console.error('Error fetching created events:', err)
+    }
+  }
 
   // Connect Twitter account
   const handleConnectTwitter = async () => {
@@ -125,8 +183,6 @@ export default function ProfilePage() {
       if (!authUrl) {
         throw new Error('No Twitter authentication URL returned')
       }
-      
-      console.log('Redirecting to Twitter auth URL:', authUrl);
       
       // Redirect to Twitter auth page
       window.location.href = authUrl
@@ -156,11 +212,11 @@ export default function ProfilePage() {
       }
       
       // Update profile data
-      setProfileData(prev => ({
+      setProfileData(prev => prev ? {
         ...prev,
         twitterConnected: false,
         twitterUsername: undefined
-      }))
+      } : null)
       
       setSuccess('Twitter account disconnected successfully')
     } catch (err: any) {
@@ -170,89 +226,29 @@ export default function ProfilePage() {
       setDisconnectingTwitter(false)
     }
   }
-
-  // Validate form before submission
-  const validateForm = () => {
-    let isValid = true
-    const newErrors = {
-      firstName: '',
-      lastName: '',
-      email: ''
-    }
+  
+  const getProfileInitials = () => {
+    if (!profileData) return '??';
     
-    // Validate email format
-    if (profileData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileData.email)) {
-      newErrors.email = 'Please enter a valid email address'
-      isValid = false
-    }
-    
-    // Check name length
-    if (profileData.firstName.length > 50) {
-      newErrors.firstName = 'First name must be 50 characters or less'
-      isValid = false
-    }
-    
-    if (profileData.lastName.length > 50) {
-      newErrors.lastName = 'Last name must be 50 characters or less'
-      isValid = false
-    }
-    
-    setErrors(newErrors)
-    return isValid
-  }
-
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setSuccess(null)
-    
-    // Validate form before submission
-    if (!validateForm()) {
-      return
-    }
-    
-    setSaving(true)
-    
-    try {
-      const response = await fetch('/api/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          firstName: profileData.firstName,
-          lastName: profileData.lastName,
-          email: profileData.email
-        })
-      })
-      
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || 'Failed to update profile')
-      }
-      
-      const updatedData = await response.json()
-      setProfileData(prev => ({
-        ...prev,
-        ...updatedData
-      }))
-      setSuccess('Profile updated successfully!')
-    } catch (err: any) {
-      console.error('Error updating profile:', err)
-      setError(err.message || 'An error occurred while updating your profile')
-    } finally {
-      setSaving(false)
+    if (profileData.firstName && profileData.lastName) {
+      return `${profileData.firstName[0]}${profileData.lastName[0]}`.toUpperCase()
+    } else if (profileData.firstName) {
+      return profileData.firstName[0].toUpperCase()
+    } else {
+      return profileData.address.slice(0, 2).toUpperCase()
     }
   }
-
-  // Handle input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setProfileData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+  
+  const getDisplayName = () => {
+    if (!profileData) return '';
+    
+    if (profileData.firstName && profileData.lastName) {
+      return `${profileData.firstName} ${profileData.lastName}`
+    } else if (profileData.firstName) {
+      return profileData.firstName
+    } else {
+      return `${profileData.address.slice(0, 6)}...${profileData.address.slice(-4)}`
+    }
   }
 
   if (loading) {
@@ -280,7 +276,8 @@ export default function ProfilePage() {
 
   return (
     <PageWrapper>
-      <div className="max-w-2xl mx-auto">
+      <CursorGlow />
+      <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <motion.h1 
             className="text-4xl font-bold gradient-text"
@@ -290,164 +287,274 @@ export default function ProfilePage() {
           >
             Your Profile
           </motion.h1>
+          
+          <Button
+            variant="outline"
+            animate
+            onClick={() => router.push('/profile/edit')}
+          >
+            <FiEdit className="mr-2" /> Edit Profile
+          </Button>
         </div>
         
-        <GlassCard className="mb-6" animate withBorder>
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl">
-              {error}
-            </div>
-          )}
-          
-          {success && (
-            <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 text-green-400 rounded-xl">
-              {success}
-            </div>
-          )}
-          
-          <form onSubmit={handleSubmit}>
-            <div className="mb-6">
-              <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="address">
-                Wallet Address
-              </label>
-              <input
-                id="address"
-                name="address"
-                type="text"
-                value={profileData.address}
-                disabled
-                className="glass-input w-full text-gray-400"
-              />
-              <p className="text-sm text-gray-400 mt-1">Your blockchain address cannot be changed</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="firstName">
-                  First Name
-                </label>
-                <input
-                  id="firstName"
-                  name="firstName"
-                  type="text"
-                  value={profileData.firstName}
-                  onChange={handleChange}
-                  className={`glass-input w-full ${errors.firstName ? 'border-red-500' : ''}`}
-                  placeholder="Enter your first name"
-                />
-                {errors.firstName && (
-                  <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="lastName">
-                  Last Name
-                </label>
-                <input
-                  id="lastName"
-                  name="lastName"
-                  type="text"
-                  value={profileData.lastName}
-                  onChange={handleChange}
-                  className={`glass-input w-full ${errors.lastName ? 'border-red-500' : ''}`}
-                  placeholder="Enter your last name"
-                />
-                {errors.lastName && (
-                  <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>
-                )}
-              </div>
-            </div>
-            
-            <div className="mb-6">
-              <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="email">
-                Email Address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={profileData.email}
-                onChange={handleChange}
-                className={`glass-input w-full ${errors.email ? 'border-red-500' : ''}`}
-                placeholder="Enter your email address"
-              />
-              {errors.email && (
-                <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-              )}
-            </div>
-            
-            <div className="flex justify-end">
-              <motion.button
-                type="submit"
-                disabled={saving}
-                className="glass-button bg-gradient-to-r from-green-500/30 to-green-700/30 text-light-green border-green-500/30"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </motion.button>
-            </div>
-          </form>
-        </GlassCard>
+        {error && (
+          <div className="mb-6 p-3 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl">
+            {error}
+          </div>
+        )}
         
-        {/* Social accounts section */}
-        <GlassCard animate withBorder highlight>
-          <h2 className="text-xl font-semibold mb-4 text-white">Connected Social Accounts</h2>
-          <div className="border-b border-gray-700/50 pb-4 mb-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center">
-                <FaTwitter className="text-blue-400 text-xl mr-3" />
-                <div>
-                  <p className="font-medium text-white">Twitter</p>
-                  {profileData.twitterConnected ? (
-                    <p className="text-sm text-gray-300">
-                      Connected as @{profileData.twitterUsername}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-400">Not connected</p>
-                  )}
+        {success && (
+          <div className="mb-6 p-3 bg-green-500/20 border border-green-500/30 text-green-400 rounded-xl">
+            {success}
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Profile Card */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="lg:col-span-1"
+          >
+            <GlowingBorder glowColor="rgba(74, 222, 128, 0.4)">
+              <GlassCard glowOnHover={false} className="h-full">
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-24 h-24 mb-4 rounded-full bg-gradient-to-r from-dark-green to-light-green flex items-center justify-center text-white text-3xl font-bold">
+                    {getProfileInitials()}
+                  </div>
+                  
+                  <h2 className="text-2xl font-bold text-white mb-1">
+                    {getDisplayName()}
+                  </h2>
+                  
+                  {/* <p className="text-sm text-gray-400 break-all mb-4">
+                    {profileData?.address}
+                  </p> */}
+                  
+                  <div className="w-full border-t border-gray-800 my-4"></div>
+                  
+                  <div className="grid grid-cols-3 w-full gap-4 mb-6">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-light-green">{profileData?.totalPoints}</p>
+                      <p className="text-xs text-gray-400">Total Points</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-light-green">{profileData?.joinedEvents}</p>
+                      <p className="text-xs text-gray-400">Events Joined</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-light-green">{profileData?.createdEvents}</p>
+                      <p className="text-xs text-gray-400">Events Created</p>
+                    </div>
+                  </div>
+                  
+                  <div className="w-full space-y-3">
+                    <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
+                      <div className="flex items-center">
+                        <FiUser className="mr-2 text-light-green" />
+                        <span className="text-sm">Member since</span>
+                      </div>
+                      <span className="text-sm text-light-green">
+                        {profileData?.createdAt ? new Date(profileData.createdAt).toLocaleDateString() : 'Unknown'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
+                      <div className="flex items-center">
+                        <FiAward className="mr-2 text-light-green" />
+                        <span className="text-sm">Wallet</span>
+                      </div>
+                      <span className="text-sm text-light-green">
+                        {profileData?.address ? `${profileData.address.slice(0, 6)}...${profileData.address.slice(-4)}` : 'Unknown'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
+                      <div className="flex items-center">
+                        <FaTwitter className="mr-2 text-light-green" />
+                        <span className="text-sm">Twitter</span>
+                      </div>
+                      {profileData?.twitterConnected ? (
+                        <a 
+                          href={`https://twitter.com/${profileData.twitterUsername}`}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-400 hover:underline flex items-center"
+                        >
+                          @{profileData.twitterUsername} <FiExternalLink className="ml-1" size={12} />
+                        </a>
+                      ) : (
+                        <span className="text-sm text-gray-400">Not connected</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Twitter connect button */}
+                  {/* <div className="w-full mt-6">
+                    {profileData?.twitterConnected ? (
+                      <motion.button
+                        onClick={handleDisconnectTwitter}
+                        disabled={disconnectingTwitter}
+                        className="glass-button bg-red-500/10 border-red-500/30 text-red-400 w-full"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        {disconnectingTwitter ? 'Disconnecting...' : 'Disconnect Twitter'}
+                      </motion.button>
+                    ) : (
+                      <motion.button
+                        onClick={handleConnectTwitter}
+                        disabled={connectingTwitter}
+                        className="glass-button bg-blue-500/20 text-blue-400 border-blue-500/30 flex items-center justify-center w-full"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        {connectingTwitter ? 'Connecting...' : (
+                          <>
+                            <FaTwitter className="mr-1" /> Connect Twitter
+                          </>
+                        )}
+                      </motion.button>
+                    )}
+                  </div> */}
+                </div>
+              </GlassCard>
+            </GlowingBorder>
+          </motion.div>
+          
+          {/* Activity Feed */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="lg:col-span-2"
+          >
+            <GlassCard>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-white">Activity History</h2>
+                
+                <div className="flex space-x-2">
+                  <Button
+                    variant={historyType === 'completed' ? "primary" : "ghost"}
+                    size="sm"
+                    onClick={() => setHistoryType('completed')}
+                  >
+                    Completed Tasks
+                  </Button>
+                  <Button
+                    variant={historyType === 'created' ? "primary" : "ghost"}
+                    size="sm"
+                    onClick={() => setHistoryType('created')}
+                  >
+                    Created Events
+                  </Button>
                 </div>
               </div>
               
-              {profileData.twitterConnected ? (
-                <motion.button
-                  onClick={handleDisconnectTwitter}
-                  disabled={disconnectingTwitter}
-                  className="glass-button bg-red-500/10 border-red-500/30 text-red-400"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {disconnectingTwitter ? 'Disconnecting...' : 'Disconnect'}
-                </motion.button>
+              {historyType === 'completed' ? (
+                taskHistory.length > 0 ? (
+                  <div className="space-y-4">
+                    {taskHistory.map((task, index) => (
+                      <motion.div
+                        key={task._id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        className="border border-gray-700/50 rounded-xl p-4 backdrop-blur-sm"
+                      >
+                        <div className="flex justify-between">
+                          <Link href={`/events/${task.eventId}`} className="font-medium text-white hover:text-light-green transition-colors">
+                            {task.eventTitle}
+                          </Link>
+                          <span className="text-light-green font-medium">+{task.pointsEarned} pts</span>
+                        </div>
+                        
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="text-xs px-2 py-1 rounded-full bg-gray-700/50">
+                            {task.platform}
+                          </span>
+                          <span className="text-xs px-2 py-1 rounded-full bg-gray-700/50">
+                            {task.taskType.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        
+                        <p className="text-sm text-gray-300 mt-2">{task.description}</p>
+                        
+                        <div className="mt-2 text-xs text-gray-400 flex items-center">
+                          <FiCalendar className="mr-1" size={12} />
+                          Completed on {new Date(task.completedAt).toLocaleDateString()}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 border border-dashed border-gray-700 rounded-xl">
+                    <p className="text-gray-400 mb-4">
+                      You haven't completed any tasks yet
+                    </p>
+                    <Link href="/events" className="glass-button text-sm">
+                      Browse events to participate
+                    </Link>
+                  </div>
+                )
               ) : (
-                <motion.button
-                  onClick={handleConnectTwitter}
-                  disabled={connectingTwitter}
-                  className="glass-button bg-blue-500/20 text-blue-400 border-blue-500/30 flex items-center"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {connectingTwitter ? 'Connecting...' : (
-                    <>
-                      <FaTwitter className="mr-1" /> Connect Twitter
-                    </>
-                  )}
-                </motion.button>
+                createdEvents.length > 0 ? (
+                  <div className="space-y-4">
+                    {createdEvents.map((event, index) => (
+                      <motion.div
+                        key={event._id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        className="border border-gray-700/50 rounded-xl p-4 backdrop-blur-sm"
+                      >
+                        <div className="flex justify-between">
+                          <Link href={`/events/${event._id}`} className="font-medium text-white hover:text-light-green transition-colors">
+                            {event.title}
+                          </Link>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            event.isActive 
+                              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                              : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                          }`}>
+                            {event.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        
+                        <p className="text-sm text-gray-300 mt-2 line-clamp-2">{event.description}</p>
+                        
+                        <div className="mt-3 flex justify-between">
+                          <div className="text-xs text-gray-400 flex items-center">
+                            <FiCalendar className="mr-1" size={12} />
+                            {new Date(event.startDate).toLocaleDateString()} - {new Date(event.endDate).toLocaleDateString()}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-light-green font-medium">
+                              {event.totalPoints} total points
+                            </span>
+                            <span className="text-xs text-blue-400 font-medium">
+                              {event.participants.length} participants
+                            </span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 border border-dashed border-gray-700 rounded-xl">
+                    <p className="text-gray-400 mb-4">
+                      You haven't created any events yet
+                    </p>
+                    <Link href="/events/create" className="glass-button text-sm">
+                      Create your first event
+                    </Link>
+                  </div>
+                )
               )}
-            </div>
-          </div>
-          
-          <div className="text-sm text-gray-300">
-            <p className="mb-2">
-              <strong>Why connect your accounts?</strong>
-            </p>
-            <p>
-              Connecting your social media accounts allows us to automatically verify when you complete social tasks.
-              This means you can earn points instantly without manual verification.
-            </p>
-          </div>
-        </GlassCard>
+            </GlassCard>
+          </motion.div>
+        </div>
       </div>
     </PageWrapper>
   )

@@ -92,6 +92,10 @@ export default function AddTaskPage() {
     isRequired: false
   })
   
+  // Add this state to track if we should show the username input
+  const [showUsernameInput, setShowUsernameInput] = useState(false);
+  const [username, setUsername] = useState('');
+
   // Get available task types for current platform
   const getAvailableTaskTypes = () => {
     return platformTasks[formData.platform as keyof typeof platformTasks] || platformTasks.other;
@@ -112,6 +116,24 @@ export default function AddTaskPage() {
       }));
     }
   }, [formData.platform]);
+  
+  // Add this effect to detect when to show the username input
+  useEffect(() => {
+    // Check if the task type is a follow/subscribe type that needs username
+    const isFollowTask = 
+      (formData.platform === 'twitter' && ['follow'].includes(formData.taskType)) ||
+      (formData.platform === 'youtube' && ['subscribe'].includes(formData.taskType)) ||
+      (formData.platform === 'instagram' && ['follow'].includes(formData.taskType)) ||
+      (formData.platform === 'facebook' && ['follow_page'].includes(formData.taskType)) ||
+      (formData.platform === 'telegram' && ['join_channel', 'join_group'].includes(formData.taskType));
+    
+    setShowUsernameInput(isFollowTask);
+    
+    // Clear username when switching task types
+    if (!isFollowTask) {
+      setUsername('');
+    }
+  }, [formData.platform, formData.taskType]);
   
   useEffect(() => {
     if (!isConnected) {
@@ -173,6 +195,26 @@ export default function AddTaskPage() {
     }))
   }
   
+  // Add a function to generate the proper URL based on username
+  const generateUrlFromUsername = () => {
+    const cleanUsername = username.trim().replace(/^@/, ''); // Remove @ if user added it
+    
+    switch(formData.platform) {
+      case 'twitter':
+        return `https://x.com/${cleanUsername}`;
+      case 'instagram':
+        return `https://instagram.com/${cleanUsername}`;
+      case 'youtube':
+        return `https://youtube.com/@${cleanUsername}`; // Add @ for YouTube
+      case 'facebook':
+        return `https://facebook.com/${cleanUsername}`;
+      case 'telegram':
+        return `https://t.me/${cleanUsername}`;
+      default:
+        return formData.linkUrl;
+    }
+  };
+
   // Form validation
   const validateForm = () => {
     // Reset error
@@ -184,18 +226,31 @@ export default function AddTaskPage() {
       return false
     }
     
-    // Link URL is required
-    if (!formData.linkUrl.trim()) {
+    // Username validation for relevant task types
+    if (showUsernameInput) {
+      if (!username.trim()) {
+        setError('Username is required')
+        return false
+      }
+      
+      // Check if user incorrectly included @
+      if (username.startsWith('@')) {
+        setError('Please enter username without the @ symbol')
+        return false
+      }
+    }
+    // Regular URL validation for non-username tasks
+    else if (!formData.linkUrl.trim()) {
       setError('Link URL is required')
       return false
-    }
-    
-    // Basic URL validation
-    try {
-      new URL(formData.linkUrl)
-    } catch (e) {
-      setError('Please enter a valid URL (including http:// or https://)')
-      return false
+    } else {
+      // Basic URL validation
+      try {
+        new URL(formData.linkUrl)
+      } catch (e) {
+        setError('Please enter a valid URL (including http:// or https://)')
+        return false
+      }
     }
     
     // Validate custom platform if needed
@@ -210,6 +265,11 @@ export default function AddTaskPage() {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Set URL from username if applicable
+    if (showUsernameInput && username) {
+      formData.linkUrl = generateUrlFromUsername();
+    }
     
     // Validate form
     if (!validateForm()) {
@@ -246,6 +306,26 @@ export default function AddTaskPage() {
     }
   }
   
+  // Add this to your component's CSS or in a style tag in the head
+  const dropdownStyles = `
+    /* Style for select elements to match theme */
+    select.glass-input {
+      appearance: none;
+      background-color: rgba(0, 0, 0, 0.2);
+      color: white;
+      backdrop-filter: blur(10px);
+      border: 0px solid rgba(255, 255, 255, 0.1);
+      padding-right: 2rem;
+    }
+    
+    /* Style for dropdown options */
+    select.glass-input option {
+      background-color:rgb(0, 19, 3);
+      border: 0px solid rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+  `;
+
   if (loading) {
     return (
       <PageWrapper className="flex items-center justify-center">
@@ -289,6 +369,9 @@ export default function AddTaskPage() {
 
   return (
     <PageWrapper>
+      {/* Add the style tag with custom dropdown styles */}
+      <style jsx>{dropdownStyles}</style>
+      
       <div className="max-w-3xl mx-auto">
         <motion.div 
           className="flex justify-between items-center mb-8 gap-4"
@@ -418,32 +501,84 @@ export default function AddTaskPage() {
               />
             </div>
             
-            {/* Link URL */}
+            {/* Conditional Username or URL Input */}
             <div className="mb-6">
-              <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="linkUrl">
-                <FiLink className="inline-block mr-2 text-light-green" />
-                Link URL
-              </label>
-              <input
-                id="linkUrl"
-                name="linkUrl"
-                type="url"
-                value={formData.linkUrl}
-                onChange={handleChange}
-                className="glass-input w-full"
-                placeholder={
-                  formData.platform === 'twitter' ? 'https://twitter.com/username' :
-                  formData.platform === 'discord' ? 'https://discord.gg/invite' :
-                  formData.platform === 'telegram' ? 'https://t.me/channelname' :
-                  formData.platform === 'youtube' ? 'https://youtube.com/channel/id' :
-                  formData.platform === 'facebook' ? 'https://facebook.com/pagename' :
-                  formData.platform === 'instagram' ? 'https://instagram.com/username' :
-                  formData.platform === 'website' ? 'https://example.com' :
-                  'https://'
-                }
-                required
-              />
-              <p className="text-xs text-gray-400 mt-1">Direct link to the content participants should interact with</p>
+              {showUsernameInput ? (
+                <>
+                  <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="username">
+                    <FiUser className="inline-block mr-2 text-light-green" />
+                    Username 
+                  </label>
+                  <div className="relative">
+                    {/* {formData.platform === 'twitter' && (
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <span className="text-gray-400">@</span>
+                      </div>
+                    )}
+                    {formData.platform === 'telegram' && (
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <span className="text-gray-400">username</span>
+                      </div>
+                    )} */}
+                    <input
+                      id="username"
+                      name="username"
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className={`glass-input w-full ${(formData.platform === 'twitter' || formData.platform === 'telegram') ? 'pl-12' : ''}`}
+                      placeholder={
+                        formData.platform === 'twitter' ? 'username (without @)' :
+                        formData.platform === 'youtube' ? 'username (without @)' :
+                        formData.platform === 'instagram' ? 'username' :
+                        formData.platform === 'facebook' ? 'pagename' :
+                        formData.platform === 'telegram' ? '' :
+                        'username'
+                      }
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {formData.platform === 'twitter' && 'Enter the Twitter username without @'}
+                    {formData.platform === 'youtube' && 'Enter the YouTube channel username without @'}
+                    {formData.platform === 'instagram' && 'Enter the Instagram username'}
+                    {formData.platform === 'facebook' && 'Enter the Facebook page name'}
+                    {formData.platform === 'telegram' && 'Enter the Telegram channel/group username'}
+                  </p>
+                  <div className="mt-2 text-xs p-2 rounded-md bg-gray-800/50 border border-gray-700">
+                    <p className="text-gray-400">
+                      Will generate: <span className="text-light-green">{generateUrlFromUsername()}</span>
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label className="block text-gray-200 text-sm font-bold mb-2" htmlFor="linkUrl">
+                    <FiLink className="inline-block mr-2 text-light-green" />
+                    Link URL
+                  </label>
+                  <input
+                    id="linkUrl"
+                    name="linkUrl"
+                    type="url"
+                    value={formData.linkUrl}
+                    onChange={handleChange}
+                    className="glass-input w-full"
+                    placeholder={
+                      formData.platform === 'twitter' ? 'https://twitter.com/username/status/123' :
+                      formData.platform === 'discord' ? 'https://discord.gg/invite' :
+                      formData.platform === 'telegram' ? 'https://t.me/channelname' :
+                      formData.platform === 'youtube' ? 'https://youtube.com/watch?v=123' :
+                      formData.platform === 'facebook' ? 'https://facebook.com/post/123' :
+                      formData.platform === 'instagram' ? 'https://instagram.com/p/123' :
+                      formData.platform === 'website' ? 'https://example.com' :
+                      'https://'
+                    }
+                    required
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Direct link to the content participants should interact with</p>
+                </>
+              )}
             </div>
             
             {/* Points Value */}

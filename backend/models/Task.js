@@ -8,12 +8,14 @@ const TaskSchema = new mongoose.Schema({
   },
   taskType: {
     type: String,
-    enum: ['follow', 'like', 'repost', 'other'],
+    enum: ['follow', 'like', 'repost', 'comment', 'create_post', 'join_server', 'send_message', 
+           'join_channel', 'join_group', 'start_bot', 'subscribe', 'like_video', 'comment_video',
+           'follow_page', 'like_post', 'comment_post', 'visit', 'custom'],
     required: true
   },
   platform: {
     type: String,
-    enum: ['twitter', 'instagram', 'facebook', 'telegram', 'discord', 'other'],
+    enum: ['twitter', 'instagram', 'facebook', 'telegram', 'discord', 'youtube', 'website', 'other'],
     required: true
   },
   description: {

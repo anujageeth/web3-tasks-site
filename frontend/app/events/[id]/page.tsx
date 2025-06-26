@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
-import { FaTwitter, FaInstagram, FaFacebookF, FaDiscord, FaTelegram } from 'react-icons/fa'
+import { FaTwitter, FaInstagram, FaFacebook, FaDiscord, FaTelegram, FaCheck, FaClock, FaYoutube, FaGlobe, FaLink } from 'react-icons/fa'
 import { FiCalendar, FiUsers, FiCheck, FiEdit, FiPlus, FiArrowLeft, FiExternalLink, FiClock, FiAward } from 'react-icons/fi'
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
@@ -71,7 +71,9 @@ export default function EventDetailPage() {
   const [taskMessage, setTaskMessage] = useState<{id: string, message: string, type: 'success' | 'error'} | null>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
   const [clickedTasks, setClickedTasks] = useState<{[key: string]: boolean}>({})
-  
+  const [taskVerifying, setTaskVerifying] = useState<boolean>(false);
+  const [verifiableTaskIds, setVerifiableTaskIds] = useState<{[key: string]: boolean}>({});
+
   useEffect(() => {
     if (!isConnected) {
       router.push('/login')
@@ -151,41 +153,22 @@ export default function EventDetailPage() {
     }
   }
   
-  // Update the Twitter task verification function
-
-  // Add this function to handle Twitter task verification
+  // Replace handleTwitterTaskVerification with this simplified version
   const handleTwitterTaskVerification = async (taskId: string, taskType: string, linkUrl: string) => {
-    setCompletingTask(taskId)
-    setTaskMessage(null)
+    setCompletingTask(taskId);
+    setTaskMessage(null);
+    setTaskVerifying(true);
     
     try {
-      // Pre-verification check - ensure Twitter is connected
-      if (!userProfile?.twitterId) {
-        setTaskMessage({
-          id: taskId,
-          message: 'This task requires a connected Twitter account. Go to your profile to connect Twitter.',
-          type: 'error'
-        });
-        setCompletingTask(null);
-        return;
-      }
-      
-      // Check if the task was clicked at least once
-      if (!clickedTasks[taskId]) {
-        setTaskMessage({
-          id: taskId,
-          message: `Please click the ${
-            taskType === 'follow' ? 'Follow Account' : 
-            taskType === 'like' ? 'Like Tweet' : 
-            'Retweet Post'
-          } button first.`,
-          type: 'error'
-        });
-        setCompletingTask(null);
-        return;
-      }
-      
+      // No need to check Twitter status anymore
       console.log('Sending verification request for task:', { taskId, taskType, linkUrl });
+      
+      // Show verifying message
+      setTaskMessage({
+        id: taskId,
+        message: 'Verifying task completion...',
+        type: 'success'
+      });
       
       // Proceed with verification
       const res = await fetch('/api/twitter/verify-task', {
@@ -212,136 +195,140 @@ export default function EventDetailPage() {
         id: taskId,
         message: data.message || `Task verified! You earned ${data.pointsEarned} points.`,
         type: 'success'
-      })
+      });
       
       // Refresh user tasks
-      fetchUserTasks()
+      fetchUserTasks();
     } catch (err: any) {
-      console.error('Error verifying Twitter task:', err)
+      console.error('Error verifying Twitter task:', err);
       setTaskMessage({
         id: taskId,
         message: err.message || 'Failed to verify task',
         type: 'error'
-      })
+      });
     } finally {
-      setCompletingTask(null)
+      setTaskVerifying(false);
+      setCompletingTask(null);
     }
-  }
+  };
 
-  // Update the handleCompleteTask function to use Twitter verification for Twitter tasks
+  // Add or update this function in your component to handle all task types
   const handleCompleteTask = async (task: Task, taskId: string) => {
-    // For Twitter tasks, use dedicated verification
-    if (task.platform === 'twitter') {
-      handleTwitterTaskVerification(taskId, task.taskType, task.linkUrl)
-      return
-    }
-    
-    // Original implementation for other platforms
-    setCompletingTask(taskId)
-    setTaskMessage(null)
+    setCompletingTask(taskId);
+    setTaskMessage(null);
     
     try {
-      const res = await fetch(`/api/tasks/${taskId}/complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ proof: 'user-verification' })
-      })
-      
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.message || 'Failed to complete task')
+      // For Twitter tasks, use the Twitter verification flow
+      if (task.platform === 'twitter') {
+        await handleTwitterTaskVerification(task._id, task.taskType, task.linkUrl);
+        return;
       }
       
-      const data = await res.json()
+      // For all other platforms, use the generic task completion
+      const response = await fetch(`/api/tasks/${taskId}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          platform: task.platform,
+          taskType: task.taskType
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to complete task');
+      }
       
       // Show success message
       setTaskMessage({
         id: taskId,
         message: data.message || `Task completed! You earned ${data.pointsEarned} points.`,
         type: 'success'
-      })
+      });
       
       // Refresh user tasks
-      fetchUserTasks()
+      fetchUserTasks();
     } catch (err: any) {
-      console.error('Error completing task:', err)
+      console.error('Error completing task:', err);
       setTaskMessage({
         id: taskId,
         message: err.message || 'Failed to complete task',
         type: 'error'
-      })
+      });
     } finally {
-      setCompletingTask(null)
+      setCompletingTask(null);
     }
   }
   
   useEffect(() => {
     // Fetch user profile to check Twitter status
-    fetch('/api/profile')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data) {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch('/api/profile');
+        if (res.ok) {
+          const data = await res.json();
           setUserProfile(data);
+          console.log('User profile loaded with Twitter status:', !!data.twitterId);
+        } else {
+          console.error('Failed to load profile:', res.status);
         }
-      })
-      .catch(err => console.error('Error loading user profile:', err));
+      } catch (err) {
+        console.error('Error loading user profile:', err);
+      }
+    };
+    
+    fetchProfile();
   }, []);
   
-  const handleOpenTask = (taskId: string, linkUrl: string) => {
+  // Update the handleOpenTask function to show only one message during verification
+  const handleOpenTask = (taskId: string, linkUrl: string, taskType: string) => {
+    // Validate URL
+    if (!linkUrl.match(/^https?:\/\//)) {
+      linkUrl = "https://" + linkUrl;
+    }
+    
     // Open the URL in a new tab
-    window.open(linkUrl, '_blank');
-    
-    // Mark this task as clicked
-    setClickedTasks(prev => ({
-      ...prev,
-      [taskId]: true
-    }));
-    
-    console.log(`Task ${taskId} opened and marked as clicked`);
+    try {
+      window.open(linkUrl, '_blank');
+      
+      // Mark this task as clicked
+      setClickedTasks(prev => ({
+        ...prev,
+        [taskId]: true
+      }));
+      
+      console.log(`Task ${taskId} opened (${taskType}) and marked as clicked`);
+      
+      // Don't set a message here - rely on the getTwitterTaskMessage function
+      // to show the waiting message based on the hasClickedTask and isVerifiable states
+      
+      // After 10 seconds, mark the task as verifiable
+      setTimeout(() => {
+        setVerifiableTaskIds(prev => ({
+          ...prev,
+          [taskId]: true
+        }));
+        
+        // No need for another message here - the getTwitterTaskMessage function
+        // will automatically update to show the "You can now verify" message
+        // when isVerifiable becomes true
+      }, 10000); // 10 seconds timer
+      
+    } catch (err) {
+      console.error('Error opening link:', err);
+      // Show error message
+      setTaskMessage({
+        id: taskId,
+        message: 'Invalid URL or could not open link',
+        type: 'error'
+      });
+    }
   };
-  
-  if (loading) {
-    return (
-      <PageWrapper className="flex items-center justify-center">
-        <motion.div
-          className="text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <p className="text-lg text-white">Loading event details...</p>
-          <div className="mt-4 h-2 w-40 mx-auto bg-gray-700 overflow-hidden rounded-full">
-            <motion.div
-              className="h-full bg-gradient-to-r from-light-green to-dark-green"
-              initial={{ width: "0%" }}
-              animate={{ width: "100%" }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
-          </div>
-        </motion.div>
-      </PageWrapper>
-    )
-  }
-  
-  if (error || !event) {
-    return (
-      <PageWrapper className="flex flex-col items-center justify-center">
-        <GlassCard animate withBorder className="text-center">
-          <p className="text-red-400 mb-4">{error || 'Event not found'}</p>
-          <button 
-            onClick={() => router.push('/dashboard')} 
-            className="glass-button inline-flex items-center"
-          >
-            <FiArrowLeft className="mr-2" /> Return to Dashboard
-          </button>
-        </GlassCard>
-      </PageWrapper>
-    )
-  }
-  
-  const isEventActive = event.isActive && new Date(event.endDate) > new Date()
+
+  const isEventActive = event ? (event.isActive && new Date(event.endDate) > new Date()) : false
   
   // Calculate user's progress
   const completedTasks = userTasks.filter(ut => ut.completed).length
@@ -349,7 +336,7 @@ export default function EventDetailPage() {
   const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
   
   // Find user's earned points
-  const userParticipant = event.participants.find(
+  const userParticipant = event?.participants?.find(
     p => p.user.address === address?.toLowerCase()
   )
   const userPoints = userParticipant?.pointsEarned || 0
@@ -394,97 +381,113 @@ export default function EventDetailPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <GlassCard withBorder highlight className="relative overflow-hidden">
-            {event.imageUrl && (
-              <div className="relative w-full h-40 -mx-6 -mt-6 mb-6">
-                <div 
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{
-                    backgroundImage: `url(${event.imageUrl})`,
-                    filter: 'blur(2px)',
-                    transform: 'scale(1.03)'
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent" />
-                <div className="absolute top-6 left-6 right-6">
+          {loading ? (
+            <GlassCard withBorder highlight>
+              <div className="h-48 flex items-center justify-center">
+                <div className="animate-pulse text-gray-400">Loading event details...</div>
+              </div>
+            </GlassCard>
+          ) : error ? (
+            <GlassCard withBorder highlight>
+              <div className="text-red-400 text-center py-8">{error}</div>
+            </GlassCard>
+          ) : event ? (
+            <GlassCard withBorder highlight className="relative overflow-hidden">
+              {event.imageUrl && (
+                <div className="relative w-full h-40 -mx-6 -mt-6 mb-6">
                   <div 
-                    className={`inline-block px-3 py-1 rounded-full text-sm float-right ${
-                      isEventActive ? 'glass-badge' : 'glass-badge glass-badge-inactive'
-                    }`}
-                  >
-                    {isEventActive ? 'Active' : 'Inactive'}
+                    className="absolute inset-0 bg-cover bg-center"
+                    style={{
+                      backgroundImage: `url(${event.imageUrl})`,
+                      filter: 'blur(2px)',
+                      transform: 'scale(1.03)'
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent" />
+                  <div className="absolute top-6 left-6 right-6">
+                    <div 
+                      className={`inline-block px-3 py-1 rounded-full text-sm float-right ${
+                        isEventActive ? 'glass-badge' : 'glass-badge glass-badge-inactive'
+                      }`}
+                    >
+                      {isEventActive ? 'Active' : 'Inactive'}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-            
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold mb-2 text-white">{event.title}</h1>
-              <p className="text-gray-300 mb-6">{event.description}</p>
+              )}
               
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
-                  <FiUsers className="text-light-green mb-1" size={18} />
-                  <p className="text-xs text-gray-400">Creator</p>
-                  <p className="text-sm font-medium truncate text-white">
-                    {event.creator.firstName || event.creator.address.substring(0, 8)}
-                  </p>
-                </div>
-                <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
-                  <FiCalendar className="text-light-green mb-1" size={18} />
-                  <p className="text-xs text-gray-400">Start Date</p>
-                  <p className="text-sm font-medium text-white">{new Date(event.startDate).toLocaleDateString()}</p>
-                </div>
-                <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
-                  <FiClock className="text-light-green mb-1" size={18} />
-                  <p className="text-xs text-gray-400">End Date</p>
-                  <p className="text-sm font-medium text-white">{new Date(event.endDate).toLocaleDateString()}</p>
-                </div>
-                <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
-                  <FiAward className="text-light-green mb-1" size={18} />
-                  <p className="text-xs text-gray-400">Total Points</p>
-                  <p className="text-sm font-medium text-light-green">{event.totalPoints}</p>
-                </div>
-              </div>
-              
-              {/* Join button or progress */}
-              {!isCreator && (
-                hasJoined ? (
-                  <div className="p-4 rounded-xl bg-black/30 border border-light-green/20 backdrop-blur-sm">
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="text-sm font-medium text-white">Your Progress</p>
-                      <p className="text-sm text-gray-300">
-                        {completedTasks}/{totalTasks} tasks ({Math.round(progressPercentage)}%)
-                      </p>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2.5">
-                      <div 
-                        className="bg-gradient-to-r from-light-green to-dark-green h-2.5 rounded-full" 
-                        style={{ width: `${progressPercentage}%` }}
-                      ></div>
-                    </div>
-                    <p className="mt-2 text-sm text-gray-300">
-                      You've earned <span className="font-bold text-light-green">{userPoints}</span> out of {event.totalPoints} possible points
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold mb-2 text-white">{event.title}</h1>
+                <p className="text-gray-300 mb-6">{event.description}</p>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                  <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
+                    <FiUsers className="text-light-green mb-1" size={18} />
+                    <p className="text-xs text-gray-400">Creator</p>
+                    <p className="text-sm font-medium truncate text-white">
+                      {event.creator.firstName || event.creator.address.substring(0, 8)}
                     </p>
                   </div>
-                ) : (
-                  <motion.button
-                    onClick={handleJoinEvent}
-                    disabled={joiningEvent || !isEventActive}
-                    className={`w-full py-2 px-6 rounded-full font-medium ${
-                      isEventActive 
-                        ? 'glass-button bg-gradient-to-r from-light-green to-dark-green text-black disabled:opacity-70' 
-                        : 'glass-button bg-gray-700/50 text-gray-400 cursor-not-allowed'
-                    }`}
-                    whileHover={isEventActive ? { scale: 1.02 } : {}}
-                    whileTap={isEventActive ? { scale: 0.98 } : {}}
-                  >
-                    {joiningEvent ? 'Joining...' : 'Join Event'}
-                  </motion.button>
-                )
-              )}
-            </div>
-          </GlassCard>
+                  <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
+                    <FiCalendar className="text-light-green mb-1" size={18} />
+                    <p className="text-xs text-gray-400">Start Date</p>
+                    <p className="text-sm font-medium text-white">{new Date(event.startDate).toLocaleDateString()}</p>
+                  </div>
+                  <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
+                    <FiClock className="text-light-green mb-1" size={18} />
+                    <p className="text-xs text-gray-400">End Date</p>
+                    <p className="text-sm font-medium text-white">{new Date(event.endDate).toLocaleDateString()}</p>
+                  </div>
+                  <div className="flex flex-col items-center p-3 rounded-xl bg-black/20 backdrop-blur-sm border border-white/5">
+                    <FiAward className="text-light-green mb-1" size={18} />
+                    <p className="text-xs text-gray-400">Total Points</p>
+                    <p className="text-sm font-medium text-light-green">{event.totalPoints}</p>
+                  </div>
+                </div>
+                
+                {/* Join button or progress */}
+                {!isCreator && (
+                  hasJoined ? (
+                    <div className="p-4 rounded-xl bg-black/30 border border-light-green/20 backdrop-blur-sm">
+                      <div className="flex justify-between items-center mb-2">
+                        <p className="text-sm font-medium text-white">Your Progress</p>
+                        <p className="text-sm text-gray-300">
+                          {completedTasks}/{totalTasks} tasks ({Math.round(progressPercentage)}%)
+                        </p>
+                      </div>
+                      <div className="w-full bg-gray-700 rounded-full h-2.5">
+                        <div 
+                          className="bg-gradient-to-r from-light-green to-dark-green h-2.5 rounded-full" 
+                          style={{ width: `${progressPercentage}%` }}
+                        ></div>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-300">
+                        You've earned <span className="font-bold text-light-green">{userPoints}</span> out of {event.totalPoints} possible points
+                      </p>
+                    </div>
+                  ) : (
+                    <motion.button
+                      onClick={handleJoinEvent}
+                      disabled={joiningEvent || !isEventActive}
+                      className={`w-full py-2 px-6 rounded-full font-medium ${
+                        isEventActive 
+                          ? 'glass-button bg-gradient-to-r from-light-green to-dark-green text-black disabled:opacity-70' 
+                          : 'glass-button bg-gray-700/50 text-gray-400 cursor-not-allowed'
+                      }`}
+                      whileHover={isEventActive ? { scale: 1.02 } : {}}
+                      whileTap={isEventActive ? { scale: 0.98 } : {}}
+                    >
+                      {joiningEvent ? 'Joining...' : 'Join Event'}
+                    </motion.button>
+                  )
+                )}
+              </div>
+            </GlassCard>
+          ) : (
+            <GlassCard withBorder highlight>
+              <div className="text-center py-8 text-gray-400">No event data available</div>
+            </GlassCard>
+          )}
         </motion.div>
         
         {/* Tasks Section */}
@@ -531,6 +534,7 @@ export default function EventDetailPage() {
                   const isCompleted = userTask?.completed || false
                   const isCurrentTaskMessage = taskMessage && taskMessage.id === task._id
                   const hasClickedTask = clickedTasks[task._id] || false;
+                  const isVerifiable = verifiableTaskIds[task._id] || false;
                   
                   return (
                     <div 
@@ -562,7 +566,7 @@ export default function EventDetailPage() {
                                 {task.platform}
                               </span>
                               <span className="text-xs bg-gray-700/50 px-2 py-1 rounded-full">
-                                {task.taskType}
+                                {getFriendlyTaskType(task.taskType)}
                               </span>
                               {task.isRequired && (
                                 <span className="text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-2 py-1 rounded-full">
@@ -574,8 +578,8 @@ export default function EventDetailPage() {
                             <h3 className="font-medium text-white mb-1">{task.description}</h3>
                             
                             {/* Replace the old link with a proper button */}
-                            <motion.button
-                              onClick={() => handleOpenTask(task._id, task.linkUrl)}
+                            {/* <motion.button
+                              onClick={() => handleOpenTask(task._id, task.linkUrl, task.taskType)}
                               className="text-sm font-medium glass-button bg-gradient-to-r from-blue-400/30 to-blue-600/30 text-blue-300 border-blue-400/30 inline-flex items-center px-3 py-1 rounded-full hover:from-blue-400/40 hover:to-blue-600/40"
                               whileHover={{ scale: 1.03 }}
                               whileTap={{ scale: 0.97 }}
@@ -584,7 +588,7 @@ export default function EventDetailPage() {
                                task.taskType === 'like' ? 'Like Tweet' :
                                task.taskType === 'repost' ? 'Retweet Post' : 'Complete Task'} 
                               <FiExternalLink className="ml-1" size={14} />
-                            </motion.button>
+                            </motion.button> */}
                             
                             {isCurrentTaskMessage && (
                               <div className={`mt-3 text-sm px-3 py-2 rounded-lg ${
@@ -596,10 +600,7 @@ export default function EventDetailPage() {
                               </div>
                             )}
                             
-                            {getTwitterTaskMessage(
-                              task, 
-                              !!(userProfile?.twitterId) // Check if user has Twitter connected
-                            )}
+                            {task.platform === 'twitter' && getTwitterTaskMessage(task, !!userProfile?.twitterId, task._id, hasClickedTask, isVerifiable)}
                           </div>
                         </div>
                         
@@ -609,19 +610,47 @@ export default function EventDetailPage() {
                           
                           {/* Complete button (only for joined users who haven't completed this task) */}
                           {hasJoined && !isCreator && !isCompleted && (
-                            <motion.button
-                              onClick={() => handleCompleteTask(task, task._id)}
-                              disabled={completingTask === task._id || !isEventActive || (task.platform === 'twitter' && !hasClickedTask)}
-                              className={`block ml-auto mt-2 py-1 px-3 rounded-full text-sm ${
-                                isEventActive && (task.platform !== 'twitter' || hasClickedTask)
-                                  ? 'glass-button bg-gradient-to-r from-green-400/30 to-green-600/30 text-green-300 border-green-400/30 disabled:opacity-70'
-                                  : 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
-                              }`}
-                              whileHover={isEventActive && (task.platform !== 'twitter' || hasClickedTask) ? { scale: 1.05 } : {}}
-                              whileTap={isEventActive && (task.platform !== 'twitter' || hasClickedTask) ? { scale: 0.95 } : {}}
-                            >
-                              {completingTask === task._id ? 'Verifying...' : 'Verify'}
-                            </motion.button>
+                            <div className="space-x-2 flex justify-end mt-2">
+                              {task.platform === 'twitter' && (
+                                <>
+                                  <motion.button
+                                    onClick={() => handleOpenTask(task._id, task.linkUrl, task.taskType)}
+                                    disabled={completingTask === task._id}
+                                    className="glass-button text-xs py-1 px-3 bg-blue-500/20 text-blue-400"
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                  >
+                                    {task.taskType === 'follow' ? 'Follow Account' : task.taskType === 'like' ? 'Like Tweet' : 'Retweet Post'}
+                                  </motion.button>
+                                  
+                                  <motion.button
+                                    onClick={() => handleTwitterTaskVerification(task._id, task.taskType, task.linkUrl)}
+                                    disabled={completingTask === task._id || !hasClickedTask || !isVerifiable}
+                                    className={`glass-button text-xs py-1 px-3 ${
+                                      hasClickedTask && isVerifiable 
+                                        ? 'bg-green-500/20 text-green-400' 
+                                        : 'bg-gray-500/20 text-gray-400'
+                                    }`}
+                                    whileHover={hasClickedTask && isVerifiable ? { scale: 1.05 } : {}}
+                                    whileTap={hasClickedTask && isVerifiable ? { scale: 0.95 } : {}}
+                                  >
+                                    {completingTask === task._id ? 'Verifying...' : 'Verify'}
+                                  </motion.button>
+                                </>
+                              )}
+                              
+                              {task.platform !== 'twitter' && (
+                                <motion.button
+                                  onClick={() => handleCompleteTask(task, task._id)}
+                                  disabled={completingTask === task._id}
+                                  className="glass-button text-xs py-1 px-3 bg-light-green/20 text-light-green"
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  {completingTask === task._id ? 'Completing...' : 'Complete Task'}
+                                </motion.button>
+                              )}
+                            </div>
                           )}
                           
                           {isCompleted && (
@@ -653,11 +682,11 @@ export default function EventDetailPage() {
             <div className="mb-4">
               <h2 className="text-xl font-bold gradient-text">Participants</h2>
               <p className="text-gray-400 text-sm">
-                {event.participants.length} user{event.participants.length !== 1 ? 's' : ''} joined this event
+                {event?.participants?.length || 0} user{(event?.participants?.length || 0) !== 1 ? 's' : ''} joined this event
               </p>
             </div>
             
-            {event.participants.length === 0 ? (
+            {!event?.participants || event.participants.length === 0 ? (
               <div className="text-center py-8 border border-dashed border-gray-700/50 rounded-xl">
                 <p className="text-gray-400">No participants have joined yet</p>
               </div>
@@ -712,58 +741,167 @@ export default function EventDetailPage() {
 
 function getPlatformClass(platform: string): string {
   switch (platform) {
-    case 'twitter': return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
-    case 'instagram': return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
-    case 'facebook': return 'bg-blue-700/20 text-blue-400 border border-blue-700/30';
-    case 'discord': return 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30';
-    case 'telegram': return 'bg-blue-400/20 text-blue-400 border border-blue-400/30';
-    default: return 'bg-gray-600/20 text-gray-400 border border-gray-600/30';
+    case 'twitter':
+      return 'bg-blue-500/20 text-blue-400';
+    case 'discord':
+      return 'bg-indigo-500/20 text-indigo-400';
+    case 'telegram':
+      return 'bg-sky-500/20 text-sky-400';
+    case 'youtube':
+      return 'bg-red-500/20 text-red-400';
+    case 'instagram':
+      return 'bg-pink-500/20 text-pink-400';
+    case 'facebook':
+      return 'bg-blue-700/20 text-blue-400';
+    case 'website':
+      return 'bg-emerald-500/20 text-emerald-400';
+    default:
+      return 'bg-purple-500/20 text-purple-400';
   }
 }
 
 function getPlatformIcon(platform: string) {
   switch (platform) {
-    case 'twitter': return <FaTwitter className="text-blue-400" size={12} />;
-    case 'instagram': return <FaInstagram className="text-purple-400" size={12} />;
-    case 'facebook': return <FaFacebookF className="text-blue-400" size={12} />;
-    case 'discord': return <FaDiscord className="text-indigo-400" size={12} />;
-    case 'telegram': return <FaTelegram className="text-blue-400" size={12} />;
-    default: return null;
+    case 'twitter':
+      return <FaTwitter className="text-blue-500" />;
+    case 'discord':
+      return <FaDiscord className="text-indigo-500" />;
+    case 'telegram':
+      return <FaTelegram className="text-sky-500" />;
+    case 'youtube':
+      return <FaYoutube className="text-red-500" />;
+    case 'instagram':
+      return <FaInstagram className="text-pink-500" />;
+    case 'facebook':
+      return <FaFacebook className="text-blue-700" />;
+    case 'website':
+      return <FaGlobe className="text-emerald-500" />;
+    default:
+      return <FaLink className="text-purple-500" />;
   }
 }
 
-// Update the getTwitterTaskMessage function
-
-function getTwitterTaskMessage(task: Task, userHasTwitterConnected: boolean) {
+// Update the getTwitterTaskMessage function to have clearer, non-redundant messages
+function getTwitterTaskMessage(task: Task, userHasTwitterConnected: boolean, taskId: string, hasClickedTask: boolean, isVerifiable: boolean) {
   if (task.platform !== 'twitter') return null;
   
-  if (!userHasTwitterConnected) {
+  if (!hasClickedTask) {
+    return (
+      <div className="mt-2 text-xs bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
+        <p className="text-blue-400">
+          <span className="font-medium">1. Click the action button above ({task.taskType})</span>
+          <br />
+          <span className="font-medium">2. Complete the action on Twitter</span>
+          <br />
+          <span className="font-medium">3. Come back and verify your completion</span>
+        </p>
+      </div>
+    );
+  } else if (hasClickedTask && !isVerifiable) {
     return (
       <div className="mt-2 text-xs bg-yellow-500/10 p-2 rounded-lg border border-yellow-500/30">
         <p className="flex items-center text-yellow-400">
-          <FaTwitter className="mr-1 text-blue-400" /> 
-          This task requires a connected Twitter account. 
-          <Link href="/profile" className="ml-1 text-blue-400 hover:underline">
-            Connect your account
-          </Link>
+          <FaClock className="mr-1" /> 
+          Please wait 10 seconds before verifying...
+        </p>
+      </div>
+    );
+  } else {
+    return (
+      <div className="mt-2 text-xs bg-green-500/10 p-2 rounded-lg border border-green-500/30">
+        <p className="flex items-center text-green-400">
+          <FaCheck className="mr-1" /> 
+          You can now click the "Verify" button to complete the task!
         </p>
       </div>
     );
   }
+}
+
+// Add this helper function to get the appropriate button text for each platform
+function getTaskButtonText(task: Task) {
+  if (task.platform === 'twitter') {
+    if (task.taskType === 'follow') return 'Follow Account';
+    if (task.taskType === 'like') return 'Like Tweet';
+    if (task.taskType === 'repost') return 'Retweet';
+    if (task.taskType === 'comment') return 'Comment';
+    return 'Complete Twitter Task';
+  }
   
-  const actionText = task.taskType === 'follow' 
-    ? 'Follow the account'
-    : task.taskType === 'like'
-    ? 'Like the tweet'
-    : 'Retweet the post';
+  if (task.platform === 'discord') {
+    if (task.taskType === 'join_server') return 'Join Discord';
+    if (task.taskType === 'send_message') return 'Send Message';
+    return 'Complete Discord Task';
+  }
+  
+  if (task.platform === 'telegram') {
+    if (task.taskType === 'join_channel') return 'Join Channel';
+    if (task.taskType === 'join_group') return 'Join Group';
+    return 'Join Telegram';
+  }
+  
+  if (task.platform === 'instagram') {
+    if (task.taskType === 'follow') return 'Follow Account';
+    if (task.taskType === 'like_post') return 'Like Post';
+    return 'Complete Instagram Task';
+  }
+  
+  if (task.platform === 'facebook') {
+    if (task.taskType === 'follow_page') return 'Follow Page';
+    if (task.taskType === 'like_post') return 'Like Post';
+    return 'Complete Facebook Task';
+  }
+  
+  if (task.platform === 'youtube') {
+    if (task.taskType === 'subscribe') return 'Subscribe';
+    if (task.taskType === 'like_video') return 'Like Video';
+    return 'Complete YouTube Task';
+  }
+  
+  if (task.platform === 'website') {
+    return 'Visit Website';
+  }
+  
+  return 'Complete Task';
+}
+
+// Add this helper function to your component
+function getFriendlyTaskType(taskType: string): string {
+  switch (taskType) {
+    // Twitter/Social Media
+    case 'follow': return 'Follow';
+    case 'like': return 'Like';
+    case 'repost': return 'Repost';
+    case 'comment': return 'Comment';
     
-  return (
-    <div className="mt-2 text-xs bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
-      <p className="text-blue-400">
-        <span className="font-medium">1. {actionText}</span> by clicking the button above
-        <br />
-        <span className="font-medium">2. Click "Verify"</span> to automatically confirm completion
-      </p>
-    </div>
-  );
+    // Discord
+    case 'join_server': return 'Join server';
+    case 'send_message': return 'Send message';
+    
+    // Telegram
+    case 'join_channel': return 'Join channel';
+    case 'join_group': return 'Join group';
+    case 'start_bot': return 'Start bot';
+    
+    // YouTube
+    case 'subscribe': return 'Subscribe';
+    case 'like_video': return 'Like video';
+    case 'comment_video': return 'Comment';
+    
+    // Instagram/Facebook
+    case 'follow_page': return 'Follow page';
+    case 'like_post': return 'Like post';
+    case 'comment_post': return 'Comment';
+    
+    // Website
+    case 'visit': return 'Visit';
+    case 'custom': return 'Custom';
+    
+    // Default: capitalize and replace underscores with spaces
+    default: 
+      return taskType
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+  }
 }

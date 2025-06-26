@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { GlowingBorder } from "./glowing-border";
 
 interface GlassCardProps {
   children: React.ReactNode;
@@ -10,6 +11,7 @@ interface GlassCardProps {
   animate?: boolean;
   withBorder?: boolean;
   highlight?: boolean;
+  glowOnHover?: boolean;
 }
 
 export const GlassCard = ({
@@ -18,12 +20,13 @@ export const GlassCard = ({
   animate = false,
   withBorder = true,
   highlight = false,
+  glowOnHover = true,
 }: GlassCardProps) => {
-  return (
+  const cardContent = (
     <motion.div
       className={cn(
         "backdrop-blur-md bg-black/30 rounded-[32px] overflow-hidden",
-        withBorder && "glass-border", 
+        withBorder && "glass-border",
         highlight && "shimmer-border",
         className
       )}
@@ -32,9 +35,21 @@ export const GlassCard = ({
       transition={animate ? { duration: 0.5 } : undefined}
       whileHover={animate ? { y: -5 } : undefined}
     >
-      <div className="p-6 relative z-10">
-        {children}
-      </div>
+      <div className="p-6 relative z-10">{children}</div>
     </motion.div>
   );
+
+  if (glowOnHover) {
+    return (
+      <GlowingBorder
+        glowColor="rgba(74, 222, 128, 0.4)"
+        glowSize={20}
+        borderRadius="32px"
+      >
+        {cardContent}
+      </GlowingBorder>
+    );
+  }
+
+  return cardContent;
 };
