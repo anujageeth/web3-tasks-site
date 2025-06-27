@@ -84,6 +84,7 @@ router.get('/:address', auth, async (req, res) => {
       totalPoints: user.totalPoints,
       twitterId: user.twitterId,
       twitterUsername: user.twitterUsername,
+      verified: user.verified,  // Add this line
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       createdEvents: createdEvents,

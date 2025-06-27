@@ -33,6 +33,10 @@ const UserSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  verified: {
+    type: Boolean,
+    default: false
+  },
   createdEvents: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Event'

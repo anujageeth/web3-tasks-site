@@ -1,16 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { EventCard } from '@/components/ui/event-card'
 import { Button } from '@/components/ui/button'
 import { Meteors } from '@/components/ui/meteors'
-import { FiArrowLeft, FiPlus, FiArrowRight, FiArrowLeft as FiPrevious } from 'react-icons/fi'
+import { FiArrowLeft, FiPlus, FiArrowRight, FiArrowLeft as FiPrevious, FiSearch, FiX } from 'react-icons/fi'
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
 import { motion } from 'framer-motion'
+import { useDebounce } from '@/hooks/useDebounce'
 
 interface Event {
   _id: string;
@@ -37,20 +38,30 @@ export default function EventsPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchActive, setSearchActive] = useState(false);
+  const fetchingRef = useRef(false);
+  const debouncedSearchTerm = useDebounce(searchTerm, 500); // Debounce to avoid excessive API calls
   
-  useEffect(() => {
-    if (!isConnected) {
-      router.push('/login');
-      return;
-    }
+  const fetchEvents = useCallback(async (page: number, search: string = '') => {
+    if (fetchingRef.current) return; // Prevent duplicate requests
     
-    fetchEvents(currentPage);
-  }, [currentPage, isConnected, router]);
-  
-  const fetchEvents = async (page: number) => {
+    fetchingRef.current = true;
     setLoading(true);
+    
     try {
-      const response = await fetch(`/api/events?page=${page}&limit=12`);
+      // Add search parameter to the API call
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: '12',
+        ...(search ? { search } : {})
+      }).toString();
+
+      const response = await fetch(`/api/events?${queryParams}`, {
+        headers: {
+          'Cache-Control': 'max-age=60, stale-while-revalidate=120'
+        }
+      });
       
       if (!response.ok) {
         throw new Error('Failed to load events');
@@ -59,18 +70,63 @@ export default function EventsPage() {
       const data = await response.json();
       setEvents(data.events);
       setTotalPages(data.totalPages);
+      
+      // Cache with search term included in key
+      const cacheKey = `events_page_${page}_search_${search}`;
+      sessionStorage.setItem(cacheKey, JSON.stringify({
+        events: data.events,
+        totalPages: data.totalPages,
+        timestamp: Date.now()
+      }));
     } catch (err) {
       console.error('Error fetching events:', err);
       setError('Failed to load events');
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
-  };
+  }, []);
+  
+  useEffect(() => {
+    if (!isConnected) {
+      router.push('/login');
+      return;
+    }
+    
+    // Reset to page 1 when search term changes
+    if (debouncedSearchTerm && currentPage !== 1) {
+      setCurrentPage(1);
+      return;
+    }
+    
+    // Try to get cached data first with search term
+    const cacheKey = `events_page_${currentPage}_search_${debouncedSearchTerm}`;
+    const cachedData = sessionStorage.getItem(cacheKey);
+    
+    if (cachedData) {
+      const { events: cachedEvents, totalPages: cachedPages, timestamp } = JSON.parse(cachedData);
+      // Use cache if less than 30 seconds old
+      if (Date.now() - timestamp < 30000) {
+        setEvents(cachedEvents);
+        setTotalPages(cachedPages);
+        setLoading(false);
+        return;
+      }
+    }
+    
+    fetchEvents(currentPage, debouncedSearchTerm);
+  }, [currentPage, debouncedSearchTerm, isConnected, router, fetchEvents]);
   
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return;
     setCurrentPage(page);
   };
+
+  // Add a function to handle search clearing
+  const clearSearch = () => {
+    setSearchTerm('');
+    setSearchActive(false);
+  }
 
   return (
     <PageWrapper>
@@ -103,6 +159,88 @@ export default function EventsPage() {
               <FiPlus className="mr-2" /> Create Event
             </Button>
           </div>
+        </motion.div>
+        
+        {/* Search bar */}
+        {/* <motion.div
+          className="mb-8"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search events..."
+              className="w-full p-4 pr-12 rounded-3xl bg-black/20 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            />
+            <button
+              onClick={clearSearch}
+              className="absolute right-3 top-3 text-gray-400 hover:text-gray-200 transition-colors"
+            >
+              <FiX />
+            </button>
+            <div className="absolute left-3 top-3 text-gray-400">
+              <FiSearch />
+            </div>
+          </div>
+        </motion.div> */}
+        
+        <motion.div 
+          className="mb-8"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <div className="relative">
+            <div className="flex rounded-full glass-border overflow-hidden backdrop-blur-md">
+              <div className="flex items-center pl-4 pr-4 text-gray-400">
+                <FiSearch size={20} />
+              </div>
+              <input
+                type="text"
+                placeholder="Search events by title, description, or creator..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setSearchActive(e.target.value.trim() !== '');
+                }}
+                className="flex-grow p-3 pl-2 bg-transparent text-white outline-none border-none"
+              />
+              {searchActive && (
+                <button 
+                  onClick={clearSearch}
+                  className="flex items-center px-3 text-gray-400 hover:text-white transition-colors"
+                >
+                  <FiX size={18} />
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {searchActive && debouncedSearchTerm && (
+            <div className="mt-4 flex items-center justify-between text-sm">
+              <div className="text-gray-300">
+                {loading ? (
+                  <span>Searching...</span>
+                ) : (
+                  <span>
+                    Found <span className="text-light-green font-medium">{events.length}</span> 
+                    {events.length === 1 ? ' event' : ' events'} for 
+                    "<span className="text-light-green">{debouncedSearchTerm}</span>"
+                  </span>
+                )}
+              </div>
+              <button 
+                onClick={clearSearch}
+                className="text-gray-400 hover:text-light-green transition-colors text-sm underline"
+              >
+                Clear search
+              </button>
+            </div>
+          )}
         </motion.div>
         
         {loading ? (

@@ -47,7 +47,10 @@ router.get('/', async (req, res) => {
     const skip = (page - 1) * limit;
 
     const events = await Event.find()
-      .populate('creator', 'address firstName lastName')
+      .populate({
+        path: 'creator',
+        select: 'address firstName lastName verified'
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -69,8 +72,14 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const event = await Event.findById(req.params.id)
-      .populate('creator', 'address firstName lastName')
-      .populate('participants.user', 'address firstName lastName');
+      .populate({
+        path: 'creator',
+        select: 'firstName lastName address verified'
+      })
+      .populate({
+        path: 'participants.user',
+        select: 'firstName lastName address verified'
+      });
 
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
@@ -249,6 +258,26 @@ router.get('/user/joined', auth, async (req, res) => {
     res.json(user.joinedEvents);
   } catch (error) {
     console.error('Get joined events error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get events created by specific user ID
+router.get('/user/:userId/created', auth, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    
+    // Find events created by this specific user
+    const events = await Event.find({ creator: userId })
+      .populate({
+        path: 'participants.user',
+        select: 'firstName lastName address'
+      })
+      .sort({ createdAt: -1 });
+    
+    res.json(events);
+  } catch (error) {
+    console.error('Error fetching user created events:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

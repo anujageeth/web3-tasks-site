@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { FiClock, FiUsers, FiCheckSquare } from "react-icons/fi";
+import { FaCheckCircle } from "react-icons/fa";
 import { GlowingBorder } from "./glowing-border";
 
 interface EventCardProps {
@@ -20,6 +21,7 @@ interface EventCardProps {
       address: string;
       firstName?: string;
       lastName?: string;
+      verified?: boolean;  // Add this
     };
     participants: Array<any>;
   };
@@ -47,7 +49,7 @@ export function EventCard({ event }: EventCardProps) {
   
   // Default background if no image
   const backgroundImage = event.imageUrl || 
-    "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=1974&auto=format&fit=crop";
+    "https://images.unsplash.com/photo-1636953056323-9c09fdd74fa6?q=80&w=2070&auto=format&fit=crop";
     
   // Fetch task count for this event when component loads
   useEffect(() => {
@@ -85,10 +87,12 @@ export function EventCard({ event }: EventCardProps) {
         {/* Background image */}
         <div
           className={cn(
-            "absolute inset-0 bg-cover bg-center transition-transform duration-700",
+            "absolute inset-0 bg-cover bg-center transition-transform duration-700 backdrop-blur-xl",
             isHovered ? "scale-110" : "scale-100"
           )}
-          style={{ backgroundImage: `url(${backgroundImage})` }}
+          style={{ 
+            backgroundImage: `url(${backgroundImage})`,
+            filter: isHovered ? "brightness(0.8)" : "brightness(1)"}}
         />
         
         {/* Gradient overlay */}
@@ -124,25 +128,24 @@ export function EventCard({ event }: EventCardProps) {
         {/* Content container */}
         <div className="relative z-10 h-80 p-5 flex flex-col justify-between">
           {/* Top section - creator info */}
-          <div className="flex items-center space-x-2">
-            <div 
+          <div className="flex items-center mt-2">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-sm"
               style={{
-                width: '2rem',
-                height: '2rem',
-                borderRadius: '9999px',
                 backgroundColor: profileBgColor,
                 color: profileTextColor,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: '500',
-                border: `1px solid ${profileBorderColor}`,
-                boxShadow: `0 0 15px ${profileShadowColor}`,
+                border: `2px solid ${profileBorderColor}`,
+                boxShadow: `0 0 10px ${profileShadowColor}`
               }}
             >
-              {creatorName[0].toUpperCase()}
+              {event.creator.firstName?.[0]?.toUpperCase() || event.creator.address.substring(0, 2).toUpperCase()}
             </div>
-            <span className="text-gray-300 text-sm">by {creatorName}</span>
+            <p className="text-sm font-medium ml-2 flex items-center">
+              <span>{creatorName}</span>
+              {event.creator.verified && (
+                <FaCheckCircle className="text-light-green ml-1" size={12} title="Verified creator" />
+              )}
+            </p>
           </div>
           
           {/* Middle section - event info */}

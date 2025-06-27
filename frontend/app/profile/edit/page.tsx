@@ -198,7 +198,7 @@ export default function EditProfilePage() {
                   </div>
                 </div>
                 
-                <div className="mb-6">
+                {/* <div className="mb-6">
                   <label className="block text-gray-200 text-sm font-medium mb-2" htmlFor="email">
                     <FiMail className="inline-block mr-2 text-light-green" />
                     Email Address
@@ -215,7 +215,7 @@ export default function EditProfilePage() {
                   <p className="text-xs text-gray-400 mt-1">
                     Your email is private and never shared publicly
                   </p>
-                </div>
+                </div> */}
                 
                 {error && (
                   <div className="mb-6 p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400">

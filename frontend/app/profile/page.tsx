@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
-import { FaTwitter } from 'react-icons/fa'
+import { FaTwitter, FaCheckCircle } from 'react-icons/fa'
 import { FiArrowLeft, FiCalendar, FiAward, FiEdit, FiUser, FiExternalLink } from 'react-icons/fi'
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
@@ -26,6 +26,7 @@ interface ProfileData {
   totalPoints: number;
   createdEvents: number;
   joinedEvents: number;
+  verified: boolean;  // Add this line
 }
 
 interface TaskHistory {
@@ -115,7 +116,8 @@ export default function ProfilePage() {
         twitterUsername: data.twitterUsername,
         totalPoints: data.totalPoints || 0,
         createdEvents: data.createdEvents?.length || 0,
-        joinedEvents: data.joinedEvents?.length || 0
+        joinedEvents: data.joinedEvents?.length || 0,
+        verified: data.verified || false  // Add this line
       })
       
       setLoading(false)
@@ -253,25 +255,86 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <PageWrapper className="flex items-center justify-center">
-        <motion.div 
-          className="text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <p className="text-lg text-white">Loading profile...</p>
-          <div className="mt-4 h-2 w-40 mx-auto bg-gray-700 overflow-hidden rounded-full">
-            <motion.div
-              className="h-full bg-gradient-to-r from-light-green to-dark-green"
-              initial={{ width: "0%" }}
-              animate={{ width: "100%" }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
+      <PageWrapper>
+        <div className="max-w-6xl mx-auto">
+          {/* Header skeleton */}
+          <div className="flex justify-between items-center mb-8">
+            <div className="h-10 w-40 bg-gradient-to-r from-gray-800/80 to-gray-700/80 rounded-md animate-pulse"></div>
+            <div className="h-10 w-32 bg-gray-800/80 rounded-xl animate-pulse"></div>
           </div>
-        </motion.div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Profile card skeleton */}
+            <div className="lg:col-span-1">
+              <div className="rounded-2xl border border-white/10 overflow-hidden h-full">
+                <div className="p-6 backdrop-blur-lg flex flex-col items-center text-center h-full">
+                  {/* Avatar */}
+                  <div className="w-24 h-24 rounded-full bg-gray-800/80 mb-4 animate-pulse"></div>
+                  
+                  {/* Name */}
+                  <div className="h-7 w-40 bg-gray-800/80 rounded-md mb-2 mx-auto animate-pulse"></div>
+                  <div className="h-4 w-28 bg-gray-800/50 rounded-md mb-4 animate-pulse"></div>
+                  
+                  <div className="w-full border-t border-gray-800 my-4"></div>
+                  
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 w-full gap-4 mb-6">
+                    {[1,2,3].map(i => (
+                      <div key={i} className="text-center">
+                        <div className="h-8 w-12 bg-gray-800/80 rounded-md mb-1 mx-auto animate-pulse"></div>
+                        <div className="h-3 w-16 bg-gray-800/50 rounded-md mx-auto animate-pulse"></div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Info rows */}
+                  <div className="w-full space-y-3">
+                    {[1,2,3].map(i => (
+                      <div key={i} className="h-12 bg-gray-800/30 rounded-lg animate-pulse"></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Activity feed skeleton */}
+            <div className="lg:col-span-2">
+              <div className="rounded-2xl border border-white/10 overflow-hidden">
+                <div className="p-6 backdrop-blur-lg">
+                  <div className="flex justify-between items-center mb-6">
+                    <div className="h-7 w-36 bg-gray-800/80 rounded-md animate-pulse"></div>
+                    <div className="flex space-x-2">
+                      <div className="h-8 w-32 bg-gray-800/50 rounded-md animate-pulse"></div>
+                      <div className="h-8 w-32 bg-gray-800/50 rounded-md animate-pulse"></div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {[1,2,3,4].map(i => (
+                      <div key={i} className="border border-gray-700/30 rounded-xl p-4">
+                        <div className="flex justify-between mb-3">
+                          <div className="h-6 w-40 bg-gray-800/80 rounded-md animate-pulse"></div>
+                          <div className="h-5 w-20 bg-gray-800/50 rounded-full animate-pulse"></div>
+                        </div>
+                        <div className="mt-2 flex gap-2">
+                          <div className="h-6 w-20 bg-gray-800/30 rounded-full animate-pulse"></div>
+                          <div className="h-6 w-24 bg-gray-800/30 rounded-full animate-pulse"></div>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          <div className="h-4 w-full bg-gray-800/50 rounded-md animate-pulse"></div>
+                          <div className="h-4 w-3/4 bg-gray-800/50 rounded-md animate-pulse"></div>
+                        </div>
+                        <div className="h-4 w-48 bg-gray-800/30 rounded-md mt-3 animate-pulse"></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </PageWrapper>
-    )
+    );
   }
 
   return (
@@ -320,12 +383,18 @@ export default function ProfilePage() {
             <GlowingBorder glowColor="rgba(74, 222, 128, 0.4)">
               <GlassCard glowOnHover={false} className="h-full">
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-24 h-24 mb-4 rounded-full bg-gradient-to-r from-dark-green to-light-green flex items-center justify-center text-white text-3xl font-bold">
-                    {getProfileInitials()}
+                  <div className="w-24 h-24 mb-4 rounded-full bg-gradient-to-r from-dark-green to-light-green flex items-center justify-center text-white text-3xl font-bold relative overflow-hidden border-4 border-light-green/30 shadow-lg shadow-light-green/20"
+                    style={{ background: 'rgba(74, 222, 128, 0.34)'}}
+                  >
+                    <div className="absolute inset-0 bg-light-green/20 animate-pulse-slow"></div>
+                    <div className="relative z-10">{getProfileInitials()}</div>
                   </div>
                   
-                  <h2 className="text-2xl font-bold text-white mb-1">
+                  <h2 className="text-2xl font-bold text-white mb-1 flex items-center justify-center gap-1">
                     {getDisplayName()}
+                    {profileData?.verified && (
+                      <FaCheckCircle className="text-light-green ml-1" title="Verified user" size={16} />
+                    )}
                   </h2>
                   
                   {/* <p className="text-sm text-gray-400 break-all mb-4">
@@ -461,30 +530,35 @@ export default function ProfilePage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.05 }}
-                        className="border border-gray-700/50 rounded-xl p-4 backdrop-blur-sm"
+                        className="border border-gray-700/50 rounded-xl p-4 backdrop-blur-sm hover:border-light-green/30 hover:bg-black/30 transition-all"
                       >
-                        <div className="flex justify-between">
-                          <Link href={`/events/${task.eventId}`} className="font-medium text-white hover:text-light-green transition-colors">
-                            {task.eventTitle}
-                          </Link>
-                          <span className="text-light-green font-medium">+{task.pointsEarned} pts</span>
-                        </div>
-                        
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <span className="text-xs px-2 py-1 rounded-full bg-gray-700/50">
-                            {task.platform}
-                          </span>
-                          <span className="text-xs px-2 py-1 rounded-full bg-gray-700/50">
-                            {task.taskType.replace(/_/g, ' ')}
-                          </span>
-                        </div>
-                        
-                        <p className="text-sm text-gray-300 mt-2">{task.description}</p>
-                        
-                        <div className="mt-2 text-xs text-gray-400 flex items-center">
-                          <FiCalendar className="mr-1" size={12} />
-                          Completed on {new Date(task.completedAt).toLocaleDateString()}
-                        </div>
+                        <Link 
+                          href={`/events/${task.eventId}`}
+                          className="block"
+                        >
+                          <div className="flex justify-between">
+                            <h3 className="font-medium text-white hover:text-light-green transition-colors">
+                              {task.eventTitle}
+                            </h3>
+                            <span className="text-light-green font-medium">+{task.pointsEarned} pts</span>
+                          </div>
+                          
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="text-xs px-2 py-1 rounded-full bg-gray-700/50">
+                              {task.platform}
+                            </span>
+                            <span className="text-xs px-2 py-1 rounded-full bg-gray-700/50">
+                              {task.taskType.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                          
+                          <p className="text-sm text-gray-300 mt-2">{task.description}</p>
+                          
+                          <div className="mt-2 text-xs text-gray-400 flex items-center">
+                            <FiCalendar className="mr-1" size={12} />
+                            Completed on {new Date(task.completedAt).toLocaleDateString()}
+                          </div>
+                        </Link>
                       </motion.div>
                     ))}
                   </div>
@@ -507,37 +581,42 @@ export default function ProfilePage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.05 }}
-                        className="border border-gray-700/50 rounded-xl p-4 backdrop-blur-sm"
+                        className="border border-gray-700/50 rounded-xl p-4 backdrop-blur-sm hover:border-light-green/30 hover:bg-black/30 transition-all"
                       >
-                        <div className="flex justify-between">
-                          <Link href={`/events/${event._id}`} className="font-medium text-white hover:text-light-green transition-colors">
-                            {event.title}
-                          </Link>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            event.isActive 
-                              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                              : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                          }`}>
-                            {event.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                        </div>
-                        
-                        <p className="text-sm text-gray-300 mt-2 line-clamp-2">{event.description}</p>
-                        
-                        <div className="mt-3 flex justify-between">
-                          <div className="text-xs text-gray-400 flex items-center">
-                            <FiCalendar className="mr-1" size={12} />
-                            {new Date(event.startDate).toLocaleDateString()} - {new Date(event.endDate).toLocaleDateString()}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs text-light-green font-medium">
-                              {event.totalPoints} total points
-                            </span>
-                            <span className="text-xs text-blue-400 font-medium">
-                              {event.participants.length} participants
+                        <Link 
+                          href={`/events/${event._id}`}
+                          className="block"
+                        >
+                          <div className="flex justify-between">
+                            <h3 className="font-medium text-white hover:text-light-green transition-colors">
+                              {event.title}
+                            </h3>
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              event.isActive 
+                                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                            }`}>
+                              {event.isActive ? 'Active' : 'Inactive'}
                             </span>
                           </div>
-                        </div>
+                          
+                          <p className="text-sm text-gray-300 mt-2 line-clamp-2">{event.description}</p>
+                          
+                          <div className="mt-3 flex justify-between">
+                            <div className="text-xs text-gray-400 flex items-center">
+                              <FiCalendar className="mr-1" size={12} />
+                              {new Date(event.startDate).toLocaleDateString()} - {new Date(event.endDate).toLocaleDateString()}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-light-green font-medium">
+                                {event.totalPoints} total points
+                              </span>
+                              <span className="text-xs text-blue-400 font-medium">
+                                {event.participants.length} participants
+                              </span>
+                            </div>
+                          </div>
+                        </Link>
                       </motion.div>
                     ))}
                   </div>

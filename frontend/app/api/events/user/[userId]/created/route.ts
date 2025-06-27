@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-export async function GET(request: NextRequest, { params }: { params: { address: string } }) {
+export async function GET(
+  request: NextRequest, 
+  { params }: { params: { userId: string } }
+) {
   try {
-    const { address } = params;
+    const { userId } = params;
     const cookieStore = cookies();
     const token = cookieStore.get('token')?.value;
     
@@ -12,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: { address:
     }
 
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
-    const response = await fetch(`${backendUrl}/api/profile/${address}`, {
+    const response = await fetch(`${backendUrl}/api/events/user/${userId}/created`, {
       headers: {
         'Cookie': `token=${token}`,
         'Authorization': `Bearer ${token}`
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { address:
 
     if (!response.ok) {
       return NextResponse.json(
-        { message: 'Failed to load user profile' }, 
+        { message: 'Failed to load created events' }, 
         { status: response.status }
       );
     }

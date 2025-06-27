@@ -7,11 +7,20 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const page = url.searchParams.get('page') || '1';
     const limit = url.searchParams.get('limit') || '10';
+    const search = url.searchParams.get('search') || '';
     
-    // Forward to backend
+    // Forward to backend with search parameter
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
+    
+    // Construct the query string
+    const queryParams = new URLSearchParams({
+      page,
+      limit,
+      ...(search ? { search } : {})
+    }).toString();
+    
     const response = await fetch(
-      `${backendUrl}/api/events?page=${page}&limit=${limit}`,
+      `${backendUrl}/api/events?${queryParams}`,
       { credentials: 'include' }
     );
 
@@ -23,7 +32,14 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+
+    // Add cache headers to response
+    const res = NextResponse.json(data);
+    
+    // Shorter cache time for search results
+    const maxAge = search ? 30 : 60;  // 30 seconds for search, 60 for normal listings
+    res.headers.set('Cache-Control', `public, max-age=${maxAge}, stale-while-revalidate=300`);
+    return res;
   } catch (error) {
     console.error('API error:', error);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });

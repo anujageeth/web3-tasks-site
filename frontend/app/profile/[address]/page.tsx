@@ -1,55 +1,52 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
+import Link from 'next/link'
+import { FaTwitter, FaCheckCircle } from 'react-icons/fa'
+import { FiArrowLeft, FiCalendar, FiUser, FiExternalLink } from 'react-icons/fi'
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
-import { Button } from '@/components/ui/button'
-import { motion } from 'framer-motion'
-import { FiArrowLeft, FiUser, FiTwitter, FiAward, FiCalendar, FiCheck, FiX, FiExternalLink } from 'react-icons/fi'
-import { CursorGlow } from '@/components/ui/cursor-glow'
-import Link from 'next/link'
 import { GlowingBorder } from '@/components/ui/glowing-border'
+import { CursorGlow } from '@/components/ui/cursor-glow'
+import { motion } from 'framer-motion'
 
-interface UserProfile {
+interface ProfileData {
   _id: string;
-  address: string;
   firstName: string;
   lastName: string;
-  email: string;
-  totalPoints: number;
-  twitterId?: string;
-  twitterUsername?: string;
+  address: string;
   createdAt: string;
+  twitterConnected: boolean;
+  twitterUsername?: string;
+  totalPoints: number;
   createdEvents: number;
   joinedEvents: number;
+  verified: boolean;  // Add this line
 }
 
-interface TaskHistory {
+interface CreatedEvent {
   _id: string;
-  eventId: string;
-  eventTitle: string;
-  taskId: string;
-  taskType: string;
-  platform: string;
+  title: string;
   description: string;
-  pointsEarned: number;
-  completedAt: string;
+  isActive: boolean;
+  startDate: string;
+  endDate: string;
+  totalPoints: number;
+  participants: Array<any>;
 }
 
-export default function ProfilePage() {
+export default function UserProfilePage() {
   const { address } = useParams() as { address: string }
   const router = useRouter()
-  const { address: userAddress, isConnected } = useAccount()
+  const { address: currentUserAddress, isConnected } = useAccount()
   
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [isOwnProfile, setIsOwnProfile] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [profileData, setProfileData] = useState<ProfileData | null>(null)
+  const [createdEvents, setCreatedEvents] = useState<CreatedEvent[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [taskHistory, setTaskHistory] = useState<TaskHistory[]>([])
-  const [createdEvents, setCreatedEvents] = useState([])
-  const [historyType, setHistoryType] = useState<'completed' | 'created'>('completed')
+  const [isOwnProfile, setIsOwnProfile] = useState(false)
 
   useEffect(() => {
     if (!isConnected) {
@@ -57,122 +54,171 @@ export default function ProfilePage() {
       return
     }
     
-    fetchProfileData()
-  }, [address, isConnected, router])
+    // Check if this is the user's own profile
+    if (currentUserAddress && address.toLowerCase() === currentUserAddress.toLowerCase()) {
+      // Redirect to main profile page if user is viewing their own profile
+      router.push('/profile')
+      return
+    }
+    
+    fetchUserProfile()
+  }, [address, currentUserAddress, isConnected, router])
   
-  const fetchProfileData = async () => {
+  const fetchUserProfile = async () => {
     setLoading(true)
     try {
-      // Check if this is the user's own profile
-      if (!address || address.toLowerCase() === userAddress?.toLowerCase()) {
-        setIsOwnProfile(true)
-        const res = await fetch('/api/profile')
-        if (!res.ok) {
-          throw new Error('Failed to load profile data')
-        }
-        
-        const data = await res.json()
-        setProfile({
-          ...data,
-          createdEvents: data.createdEvents?.length || 0,
-          joinedEvents: data.joinedEvents?.length || 0
-        })
-        
-        // Fetch own task history
-        fetchTaskHistory()
-        fetchCreatedEvents()
-      } else {
-        // Fetch other user's profile
-        setIsOwnProfile(false)
-        const res = await fetch(`/api/profile/${address}`)
-        if (!res.ok) {
-          throw new Error('Failed to load user profile')
-        }
-        
-        const data = await res.json()
-        setProfile({
-          ...data,
-          createdEvents: data.createdEvents?.length || 0,
-          joinedEvents: data.joinedEvents?.length || 0
-        })
-        
-        // Fetch other user's public task history
-        fetchPublicTaskHistory(address)
+      // Fetch user profile
+      const profileRes = await fetch(`/api/profile/${address}`)
+      if (!profileRes.ok) {
+        throw new Error('Failed to load user profile')
       }
+      
+      const userData = await profileRes.json()
+      
+      setProfileData({
+        _id: userData._id,
+        firstName: userData.firstName || '',
+        lastName: userData.lastName || '',
+        address: userData.address || '',
+        createdAt: userData.createdAt,
+        twitterConnected: !!userData.twitterId,
+        twitterUsername: userData.twitterUsername,
+        totalPoints: userData.totalPoints || 0,
+        createdEvents: userData.createdEvents?.length || 0,
+        joinedEvents: userData.joinedEvents?.length || 0,
+        verified: userData.verified || false  // Add this line
+      })
+      
+      // After profile is loaded, fetch created events
+      fetchUserEvents(userData._id)
     } catch (err: any) {
-      console.error('Profile fetch error:', err)
-      setError(err.message || 'Failed to load profile')
+      console.error('Error loading user profile:', err)
+      setError('Failed to load user profile')
     } finally {
       setLoading(false)
     }
   }
   
-  const fetchTaskHistory = async () => {
+  const fetchUserEvents = async (userId: string) => {
     try {
-      const res = await fetch('/api/tasks/history')
-      if (res.ok) {
-        const data = await res.json()
-        setTaskHistory(data)
+      // Fetch events created by this user
+      const eventsRes = await fetch(`/api/events/user/${userId}/created`)
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json()
+        setCreatedEvents(eventsData)
       }
     } catch (err) {
-      console.error('Error fetching task history:', err)
-    }
-  }
-  
-  const fetchPublicTaskHistory = async (userAddress: string) => {
-    try {
-      const res = await fetch(`/api/profile/${userAddress}/tasks`)
-      if (res.ok) {
-        const data = await res.json()
-        setTaskHistory(data)
-      }
-    } catch (err) {
-      console.error('Error fetching public task history:', err)
-    }
-  }
-  
-  const fetchCreatedEvents = async () => {
-    try {
-      const res = await fetch('/api/events/user/created')
-      if (res.ok) {
-        const data = await res.json()
-        setCreatedEvents(data)
-      }
-    } catch (err) {
-      console.error('Error fetching created events:', err)
+      console.error('Error loading user events:', err)
     }
   }
   
   const getProfileInitials = () => {
-    if (profile?.firstName && profile?.lastName) {
-      return `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase()
-    } else if (profile?.firstName) {
-      return profile.firstName[0].toUpperCase()
+    if (!profileData) return '??';
+    
+    if (profileData.firstName && profileData.lastName) {
+      return `${profileData.firstName[0]}${profileData.lastName[0]}`.toUpperCase()
+    } else if (profileData.firstName) {
+      return profileData.firstName[0].toUpperCase()
     } else {
-      return profile?.address.slice(0, 2).toUpperCase() || '?'
+      return profileData.address.slice(0, 2).toUpperCase()
     }
   }
   
   const getDisplayName = () => {
-    if (profile?.firstName && profile?.lastName) {
-      return `${profile.firstName} ${profile.lastName}`
-    } else if (profile?.firstName) {
-      return profile.firstName
+    if (!profileData) return '';
+    
+    if (profileData.firstName && profileData.lastName) {
+      return `${profileData.firstName} ${profileData.lastName}`
+    } else if (profileData.firstName) {
+      return profileData.firstName
     } else {
-      return `${profile?.address.slice(0, 6)}...${profile?.address.slice(-4)}`
+      return `${profileData.address.slice(0, 6)}...${profileData.address.slice(-4)}`
     }
+  }
+
+  if (loading) {
+    return (
+      <PageWrapper>
+        <div className="max-w-6xl mx-auto">
+          {/* Header skeleton */}
+          <div className="flex justify-between items-center mb-8">
+            <div className="h-10 w-24 bg-gray-800/80 rounded-xl animate-pulse"></div>
+            <div className="h-10 w-40 bg-gradient-to-r from-gray-800/80 to-gray-700/80 rounded-md animate-pulse"></div>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Profile card skeleton */}
+            <div className="lg:col-span-1">
+              <div className="rounded-2xl border border-white/10 overflow-hidden h-full">
+                <div className="p-6 backdrop-blur-lg flex flex-col items-center text-center h-full">
+                  {/* Avatar */}
+                  <div className="w-24 h-24 rounded-full bg-gray-800/80 mb-4 animate-pulse"></div>
+                  
+                  {/* Name */}
+                  <div className="h-7 w-40 bg-gray-800/80 rounded-md mb-2 mx-auto animate-pulse"></div>
+                  <div className="h-4 w-28 bg-gray-800/50 rounded-md mb-4 animate-pulse"></div>
+                  
+                  <div className="w-full border-t border-gray-800 my-4"></div>
+                  
+                  {/* Stats */}
+                  <div className="text-center mb-6">
+                    <div className="h-8 w-12 bg-gray-800/80 rounded-md mb-1 mx-auto animate-pulse"></div>
+                    <div className="h-3 w-36 bg-gray-800/50 rounded-md mx-auto animate-pulse"></div>
+                  </div>
+                  
+                  {/* Info rows */}
+                  <div className="w-full space-y-3">
+                    {[1,2].map(i => (
+                      <div key={i} className="h-12 bg-gray-800/30 rounded-lg animate-pulse"></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Events skeleton */}
+            <div className="lg:col-span-2">
+              <div className="rounded-2xl border border-white/10 overflow-hidden">
+                <div className="p-6 backdrop-blur-lg">
+                  <div className="mb-6">
+                    <div className="h-7 w-36 bg-gray-800/80 rounded-md animate-pulse"></div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {[1,2,3].map(i => (
+                      <div key={i} className="border border-gray-700/30 rounded-xl p-4">
+                        <div className="flex justify-between mb-3">
+                          <div className="h-6 w-40 bg-gray-800/80 rounded-md animate-pulse"></div>
+                          <div className="h-5 w-20 bg-gray-800/50 rounded-full animate-pulse"></div>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          <div className="h-4 w-full bg-gray-800/50 rounded-md animate-pulse"></div>
+                          <div className="h-4 w-3/4 bg-gray-800/50 rounded-md animate-pulse"></div>
+                        </div>
+                        <div className="flex justify-between mt-3">
+                          <div className="h-4 w-48 bg-gray-800/30 rounded-md animate-pulse"></div>
+                          <div className="flex gap-2">
+                            <div className="h-4 w-24 bg-gray-800/30 rounded-md animate-pulse"></div>
+                            <div className="h-4 w-24 bg-gray-800/30 rounded-md animate-pulse"></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </PageWrapper>
+    );
   }
 
   return (
     <PageWrapper>
       <CursorGlow />
       <div className="max-w-6xl mx-auto">
-        <motion.div 
-          className="flex justify-between items-center mb-8"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
+        <div className="flex justify-between items-center mb-8">
           <button 
             onClick={() => router.back()}
             className="glass-button inline-flex items-center"
@@ -180,40 +226,29 @@ export default function ProfilePage() {
             <FiArrowLeft className="mr-2" /> Back
           </button>
           
-          <h1 className="text-3xl font-bold gradient-text">
-            {isOwnProfile ? 'Your Profile' : 'User Profile'}
-          </h1>
-          
-          {isOwnProfile && (
-            <Button
-              variant="outline"
-              animate
-              onClick={() => router.push('/profile/edit')}
-            >
-              Edit Profile
-            </Button>
-          )}
-        </motion.div>
+          <motion.h1 
+            className="text-4xl font-bold gradient-text"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            User Profile
+          </motion.h1>
+        </div>
         
-        {loading ? (
-          <div className="py-12">
-            <GlassCard className="p-10" animate>
-              <div className="flex items-center justify-center h-40">
-                <div className="spinner border-t-2 border-light-green w-12 h-12 rounded-full animate-spin"></div>
-              </div>
-            </GlassCard>
+        {error ? (
+          <div className="mb-6 p-6 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl text-center">
+            {error}
+            <div className="mt-4">
+              <button 
+                onClick={() => router.back()}
+                className="glass-button"
+              >
+                Go Back
+              </button>
+            </div>
           </div>
-        ) : error ? (
-          <GlassCard className="p-10 text-center" animate>
-            <p className="text-red-400 mb-4">{error}</p>
-            <Button 
-              variant="secondary"
-              onClick={() => router.push('/dashboard')}
-            >
-              Return to Dashboard
-            </Button>
-          </GlassCard>
-        ) : profile ? (
+        ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Profile Card */}
             <motion.div
@@ -225,33 +260,29 @@ export default function ProfilePage() {
               <GlowingBorder glowColor="rgba(74, 222, 128, 0.4)">
                 <GlassCard glowOnHover={false} className="h-full">
                   <div className="flex flex-col items-center text-center">
-                    <div className="w-24 h-24 mb-4 rounded-full bg-gradient-to-r from-dark-green to-light-green flex items-center justify-center text-white text-3xl font-bold">
-                      {getProfileInitials()}
+                    <div className="w-24 h-24 mb-4 rounded-full bg-gradient-to-r from-dark-green to-light-green flex items-center justify-center text-white text-3xl font-bold relative overflow-hidden border-4 border-light-green/30 shadow-lg shadow-light-green/20"
+                        style={{ background: 'rgba(74, 222, 128, 0.34)'}}
+                    >
+                      <div className="absolute inset-0 bg-light-green/20 animate-pulse-slow"></div>
+                      <div className="relative z-10">{getProfileInitials()}</div>
                     </div>
                     
-                    <h2 className="text-2xl font-bold text-white mb-1">
+                    <h2 className="text-2xl font-bold text-white mb-1 flex items-center justify-center gap-1">
                       {getDisplayName()}
+                      {profileData?.verified && (
+                        <FaCheckCircle className="text-light-green ml-1" title="Verified user" size={16} />
+                      )}
                     </h2>
                     
-                    <p className="text-sm text-gray-400 break-all mb-4">
-                      {profile.address}
+                    <p className="text-sm text-gray-400 mb-4">
+                      {profileData?.address.slice(0, 6)}...{profileData?.address.slice(-4)}
                     </p>
                     
                     <div className="w-full border-t border-gray-800 my-4"></div>
                     
-                    <div className="grid grid-cols-3 w-full gap-4 mb-6">
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-light-green">{profile.totalPoints}</p>
-                        <p className="text-xs text-gray-400">Total Points</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-light-green">{profile.joinedEvents}</p>
-                        <p className="text-xs text-gray-400">Events Joined</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-light-green">{profile.createdEvents}</p>
+                    <div className="text-center">
+                        <p className="text-2xl font-bold text-light-green">{profileData?.createdEvents}</p>
                         <p className="text-xs text-gray-400">Events Created</p>
-                      </div>
                     </div>
                     
                     <div className="w-full space-y-3">
@@ -261,35 +292,33 @@ export default function ProfilePage() {
                           <span className="text-sm">Member since</span>
                         </div>
                         <span className="text-sm text-light-green">
-                          {new Date(profile.createdAt).toLocaleDateString()}
+                          {profileData?.createdAt ? new Date(profileData.createdAt).toLocaleDateString() : 'Unknown'}
                         </span>
                       </div>
                       
-                      <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
-                        <div className="flex items-center">
-                          <FiTwitter className="mr-2 text-light-green" />
-                          <span className="text-sm">Twitter</span>
-                        </div>
-                        {profile.twitterUsername ? (
+                      {profileData?.twitterConnected && (
+                        <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
+                          <div className="flex items-center">
+                            <FaTwitter className="mr-2 text-light-green" />
+                            <span className="text-sm">Twitter</span>
+                          </div>
                           <a 
-                            href={`https://twitter.com/${profile.twitterUsername}`}
+                            href={`https://twitter.com/${profileData.twitterUsername}`}
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="text-sm text-blue-400 hover:underline flex items-center"
                           >
-                            @{profile.twitterUsername} <FiExternalLink className="ml-1" size={12} />
+                            @{profileData.twitterUsername} <FiExternalLink className="ml-1" size={12} />
                           </a>
-                        ) : (
-                          <span className="text-sm text-gray-400">Not connected</span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </GlassCard>
               </GlowingBorder>
             </motion.div>
             
-            {/* Activity Feed */}
+            {/* Created Events */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -297,93 +326,33 @@ export default function ProfilePage() {
               className="lg:col-span-2"
             >
               <GlassCard>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-white">Activity History</h2>
-                  
-                  <div className="flex space-x-2">
-                    <Button
-                      variant={historyType === 'completed' ? "primary" : "ghost"}
-                      size="sm"
-                      onClick={() => setHistoryType('completed')}
-                    >
-                      Completed Tasks
-                    </Button>
-                    <Button
-                      variant={historyType === 'created' ? "primary" : "ghost"}
-                      size="sm"
-                      onClick={() => setHistoryType('created')}
-                    >
-                      Created Events
-                    </Button>
-                  </div>
+                <div className="mb-6">
+                  <h2 className="text-xl font-semibold text-white">Events Created</h2>
                 </div>
                 
-                {historyType === 'completed' ? (
-                  taskHistory.length > 0 ? (
-                    <div className="space-y-4">
-                      {taskHistory.map((task, index) => (
-                        <motion.div
-                          key={task._id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3, delay: index * 0.05 }}
-                          className="border border-gray-700/50 rounded-xl p-4 backdrop-blur-sm"
+                {createdEvents.length > 0 ? (
+                  <div className="space-y-4">
+                    {createdEvents.map((event, index) => (
+                      <motion.div
+                        key={event._id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        className="border border-gray-700/50 rounded-xl p-4 backdrop-blur-sm hover:border-light-green/30 hover:bg-black/30 transition-all"
+                      >
+                        <Link 
+                          href={`/events/${event._id}`}
+                          className="block"
                         >
                           <div className="flex justify-between">
-                            <Link href={`/events/${task.eventId}`} className="font-medium text-white hover:text-light-green transition-colors">
-                              {task.eventTitle}
-                            </Link>
-                            <span className="text-light-green font-medium">+{task.pointsEarned} pts</span>
-                          </div>
-                          
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <span className="text-xs px-2 py-1 rounded-full bg-gray-700/50">
-                              {task.platform}
-                            </span>
-                            <span className="text-xs px-2 py-1 rounded-full bg-gray-700/50">
-                              {task.taskType.replace('_', ' ')}
-                            </span>
-                          </div>
-                          
-                          <p className="text-sm text-gray-300 mt-2">{task.description}</p>
-                          
-                          <div className="mt-2 text-xs text-gray-400 flex items-center">
-                            <FiCalendar className="mr-1" size={12} />
-                            Completed on {new Date(task.completedAt).toLocaleDateString()}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 border border-dashed border-gray-700 rounded-xl">
-                      <p className="text-gray-400 mb-4">
-                        {isOwnProfile 
-                          ? "You haven't completed any tasks yet" 
-                          : "This user hasn't completed any tasks yet"}
-                      </p>
-                      {isOwnProfile && (
-                        <Link href="/events" className="glass-button text-sm">
-                          Browse events to participate
-                        </Link>
-                      )}
-                    </div>
-                  )
-                ) : (
-                  createdEvents.length > 0 ? (
-                    <div className="space-y-4">
-                      {createdEvents.map((event: any, index) => (
-                        <motion.div
-                          key={event._id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3, delay: index * 0.05 }}
-                          className="border border-gray-700/50 rounded-xl p-4 backdrop-blur-sm"
-                        >
-                          <div className="flex justify-between">
-                            <Link href={`/events/${event._id}`} className="font-medium text-white hover:text-light-green transition-colors">
+                            <h3 className="font-medium text-white hover:text-light-green transition-colors">
                               {event.title}
-                            </Link>
-                            <span className={event.isActive ? 'glass-badge' : 'glass-badge glass-badge-inactive'}>
+                            </h3>
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              event.isActive 
+                                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                            }`}>
                               {event.isActive ? 'Active' : 'Inactive'}
                             </span>
                           </div>
@@ -395,30 +364,30 @@ export default function ProfilePage() {
                               <FiCalendar className="mr-1" size={12} />
                               {new Date(event.startDate).toLocaleDateString()} - {new Date(event.endDate).toLocaleDateString()}
                             </div>
-                            <span className="text-xs text-light-green font-medium">{event.totalPoints} total points</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-light-green font-medium">
+                                {event.totalPoints} total points
+                              </span>
+                              <span className="text-xs text-blue-400 font-medium">
+                                {event.participants.length} participants
+                              </span>
+                            </div>
                           </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 border border-dashed border-gray-700 rounded-xl">
-                      <p className="text-gray-400 mb-4">
-                        {isOwnProfile 
-                          ? "You haven't created any events yet" 
-                          : "This user hasn't created any events yet"}
-                      </p>
-                      {isOwnProfile && (
-                        <Link href="/events/create" className="glass-button text-sm">
-                          Create your first event
                         </Link>
-                      )}
-                    </div>
-                  )
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 border border-dashed border-gray-700 rounded-xl">
+                    <p className="text-gray-400">
+                      This user hasn't created any events yet
+                    </p>
+                  </div>
                 )}
               </GlassCard>
             </motion.div>
           </div>
-        ) : null}
+        )}
       </div>
     </PageWrapper>
   )
