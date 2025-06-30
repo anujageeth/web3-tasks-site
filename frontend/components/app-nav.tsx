@@ -1,20 +1,43 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { FloatingNav } from "./ui/floating-navbar";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { FiHome, FiCompass, FiPlus, FiUser, FiLogOut } from "react-icons/fi";
 import { useAccount, useDisconnect } from "wagmi";
 
 export function AppNav() {
   const router = useRouter();
+  const pathname = usePathname();
   const { isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const [showNav, setShowNav] = useState(false);
+  const [isAuthenticatedWithBackend, setIsAuthenticatedWithBackend] = useState(false);
 
-  // Only show nav on client and when connected
+  // Check if user is authenticated with backend
   useEffect(() => {
-    setShowNav(isConnected);
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/user', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        setIsAuthenticatedWithBackend(response.ok);
+      } catch (err) {
+        console.error('Error checking authentication:', err);
+        setIsAuthenticatedWithBackend(false);
+      }
+    };
+
+    checkAuth();
   }, [isConnected]);
+
+  // Determine when to show nav based on authentication and current page
+  useEffect(() => {
+    const isHomePage = pathname === '/';
+    const shouldShowNav = isConnected && isAuthenticatedWithBackend && !isHomePage;
+    setShowNav(shouldShowNav);
+  }, [isConnected, isAuthenticatedWithBackend, pathname]);
 
   const handleLogout = async () => {
     try {
@@ -38,6 +61,9 @@ export function AppNav() {
     document.cookie.split(";").forEach(function(c) { 
       document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
     });
+
+    // Update auth state immediately
+    setIsAuthenticatedWithBackend(false);
 
     // Force a hard redirect to home page with logout flag to ensure clean state
     window.location.href = "/?logout=true";

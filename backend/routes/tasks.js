@@ -307,6 +307,70 @@ router.post('/:id/complete', auth, async (req, res) => {
       return res.status(404).json({ message: 'Task not found' });
     }
     
+    // Get user details to check social media connections
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Check platform-specific requirements
+    switch (task.platform) {
+      case 'twitter':
+        if (!user.twitterId) {
+          return res.status(400).json({ 
+            message: 'You must connect your Twitter account to complete Twitter tasks. Please go to your profile settings to connect Twitter.',
+            requiresConnection: 'twitter'
+          });
+        }
+        break;
+        
+      case 'telegram':
+        if (!user.telegramId) {
+          return res.status(400).json({ 
+            message: 'You must connect your Telegram account to complete Telegram tasks. Please go to your profile settings to connect Telegram.',
+            requiresConnection: 'telegram'
+          });
+        }
+        break;
+        
+      case 'discord':
+        if (!user.discordId) {
+          return res.status(400).json({ 
+            message: 'You must connect your Discord account to complete Discord tasks. Please go to your profile settings to connect Discord.',
+            requiresConnection: 'discord'
+          });
+        }
+        break;
+        
+      case 'youtube':
+        if (!user.googleId) {
+          return res.status(400).json({ 
+            message: 'You must connect your Google account to complete YouTube tasks. Please go to your profile settings to connect Google.',
+            requiresConnection: 'google'
+          });
+        }
+        break;
+        
+      // Instagram and Facebook might also require connections in the future
+      case 'instagram':
+        // For now, allow without connection, but you can add this later
+        break;
+        
+      case 'facebook':
+        // For now, allow without connection, but you can add this later
+        break;
+        
+      // Website and other platforms don't require social media connections
+      case 'website':
+      case 'other':
+        break;
+        
+      default:
+        // Allow completion for unknown platforms
+        break;
+    }
+    
     // Find the user task entry
     let userTask = await UserTask.findOne({
       user: req.user._id,
@@ -347,6 +411,7 @@ router.post('/:id/complete', auth, async (req, res) => {
         method: 'self_verification', 
         platform: task.platform,
         taskType: task.taskType,
+        connectedAccount: getConnectedAccountInfo(user, task.platform),
         timestamp: Date.now() 
       };
     }
@@ -379,6 +444,22 @@ router.post('/:id/complete', auth, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Helper function to get connected account info for verification
+function getConnectedAccountInfo(user, platform) {
+  switch (platform) {
+    case 'twitter':
+      return user.twitterUsername ? `@${user.twitterUsername}` : 'Connected';
+    case 'telegram':
+      return user.telegramUsername ? `@${user.telegramUsername}` : 'Connected';
+    case 'discord':
+      return user.discordUsername || 'Connected';
+    case 'youtube':
+      return user.googleEmail || 'Connected';
+    default:
+      return 'Not applicable';
+  }
+}
 
 // Get tasks status for current user in an event
 router.get('/user/event/:eventId', auth, async (req, res) => {

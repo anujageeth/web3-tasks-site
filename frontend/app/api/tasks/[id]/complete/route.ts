@@ -31,14 +31,20 @@ export async function POST(
     if (!response.ok) {
       // Try to get error message from response
       let errorMessage = 'Failed to complete task';
+      let requiresConnection = null;
+      
       try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorMessage;
+        requiresConnection = errorData.requiresConnection || null;
       } catch (e) {
         console.error('Could not parse error response:', e);
       }
       
-      return NextResponse.json({ message: errorMessage }, { status: response.status });
+      return NextResponse.json({ 
+        message: errorMessage,
+        requiresConnection: requiresConnection 
+      }, { status: response.status });
     }
 
     const responseData = await response.json();

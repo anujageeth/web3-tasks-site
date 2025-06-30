@@ -303,10 +303,31 @@ const handleDeleteEvent = async () => {
       const data = await response.json();
       
       if (!response.ok) {
+        // Check if this is a connection requirement error
+        if (data.requiresConnection) {
+          const connectionMessages = {
+            twitter: 'Please connect your Twitter account in your profile settings to complete Twitter tasks.',
+            telegram: 'Please connect your Telegram account in your profile settings to complete Telegram tasks.',
+            discord: 'Please connect your Discord account in your profile settings to complete Discord tasks.',
+            google: 'Please connect your Google account in your profile settings to complete YouTube tasks.'
+          };
+          
+          const message = connectionMessages[data.requiresConnection as keyof typeof connectionMessages] || data.message;
+          
+          // Show error with option to go to profile settings
+          setError({
+            message: message,
+            actionText: 'Go to Profile Settings',
+            actionHandler: () => router.push('/profile/edit')
+          });
+          
+          return;
+        }
+        
         throw new Error(data.message || 'Failed to complete task');
       }
       
-      // Show success message
+      // Handle successful completion
       setTaskMessage({
         id: taskId,
         message: data.message || `Task completed! You earned ${data.pointsEarned} points.`,
@@ -724,6 +745,21 @@ const handleDeleteEvent = async () => {
                         task.platform === 'twitter' 
                           ? getTwitterTaskMessage(task, !!userProfile?.twitterId, task._id, hasClickedTask, isVerifiable) 
                           : getTaskStatusMessage(task, task._id, hasClickedTask, isVerifiable)
+                      )}
+                      
+                      {/* Connection status message */}
+                      {!getConnectionStatus(task.platform, userProfile) && (
+                        <div className="mb-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                          <p className="text-yellow-300 text-sm">
+                            ⚠️ {getConnectionMessage(task.platform)}
+                          </p>
+                          <Link 
+                            href="/profile/edit" 
+                            className="text-yellow-400 hover:underline text-sm"
+                          >
+                            Connect in Profile Settings →
+                          </Link>
+                        </div>
                       )}
                     </div>
                   );
@@ -1237,3 +1273,34 @@ function getFriendlyTaskType(taskType: string): string {
         .join(' ');
   }
 }
+
+// In your task component, add connection status indicators
+const getConnectionStatus = (platform: string, userProfile: any) => {
+  switch (platform) {
+    case 'twitter':
+      return userProfile?.twitterConnected;
+    case 'telegram':
+      return userProfile?.telegramConnected;
+    case 'discord':
+      return userProfile?.discordConnected;
+    case 'youtube':
+      return userProfile?.googleConnected;
+    default:
+      return true; // No connection required
+  }
+};
+
+const getConnectionMessage = (platform: string) => {
+  switch (platform) {
+    case 'twitter':
+      return 'Twitter account connection required';
+    case 'telegram':
+      return 'Telegram account connection required';
+    case 'discord':
+      return 'Discord account connection required';
+    case 'youtube':
+      return 'Google account connection required';
+    default:
+      return '';
+  }
+};

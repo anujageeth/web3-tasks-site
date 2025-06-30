@@ -570,6 +570,7 @@ export default function ProfilePage() {
                     variant={historyType === 'completed' ? "primary" : "ghost"}
                     size="sm"
                     onClick={() => setHistoryType('completed')}
+                    className={historyType !== 'completed' ? "border-light-green/30 text-white hover:bg-light-green/10 hover:border-light-green/50" : ""}
                   >
                     Completed Tasks
                   </Button>
@@ -577,6 +578,7 @@ export default function ProfilePage() {
                     variant={historyType === 'created' ? "primary" : "ghost"}
                     size="sm"
                     onClick={() => setHistoryType('created')}
+                    className={historyType !== 'created' ? "border-light-green/30 text-white hover:bg-light-green/10 hover:border-light-green/50" : ""}
                   >
                     Created Events
                   </Button>

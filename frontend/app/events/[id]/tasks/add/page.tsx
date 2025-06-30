@@ -326,6 +326,21 @@ export default function AddTaskPage() {
     }
   `;
 
+  const getPlatformRequirement = (platform: string) => {
+    switch (platform) {
+      case 'twitter':
+        return 'Participants must have Twitter connected to complete this task';
+      case 'telegram':
+        return 'Participants must have Telegram connected to complete this task';
+      case 'discord':
+        return 'Participants must have Discord connected to complete this task';
+      case 'youtube':
+        return 'Participants must have Google connected to complete this task';
+      default:
+        return 'No account connection required for this platform';
+    }
+  };
+
   if (loading) {
     return (
       <PageWrapper className="flex items-center justify-center">
@@ -447,6 +462,10 @@ export default function AddTaskPage() {
                     />
                   </div>
                 )}
+                
+                <div className="mt-1 text-xs text-gray-400">
+                  {getPlatformRequirement(formData.platform)}
+                </div>
               </div>
               
               {/* Task Type Selection */}

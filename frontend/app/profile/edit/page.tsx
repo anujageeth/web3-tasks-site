@@ -469,7 +469,7 @@ export default function EditProfilePage() {
                     variant="primary"
                     animate
                     disabled={saving}
-                    className="inline-flex items-center"
+                    className="inline-flex items-center bg-light-green text-white px-6 py-3 rounded-lg transition-colors hover:bg-light-green/90 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {saving ? 'Saving...' : (
                       <>
