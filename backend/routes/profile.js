@@ -8,10 +8,31 @@ const UserTask = require('../models/UserTask');
 // Get the current user's profile
 router.get('/', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('-nonce');
-    res.json(user);
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      address: user.address,
+      lastLogin: user.lastLogin,
+      createdAt: user.createdAt,
+      twitterConnected: !!user.twitterId,
+      twitterUsername: user.twitterUsername,
+      telegramConnected: !!user.telegramId,   // Add this
+      telegramUsername: user.telegramUsername, // Add this
+      totalPoints: user.totalPoints,
+      createdEvents: user.createdEvents.length,
+      joinedEvents: user.joinedEvents.length,
+      verified: user.verified
+    });
   } catch (error) {
-    console.error('Get profile error:', error);
+    console.error('Error fetching profile:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -37,6 +37,7 @@ app.use('/api/profile', require('./routes/profile'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/twitter', require('./routes/twitter'));
+app.use('/api/telegram', require('./routes/telegram'));
 
 // Test route
 app.get('/api/test', (req, res) => {

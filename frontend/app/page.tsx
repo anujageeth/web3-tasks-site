@@ -16,6 +16,7 @@ export default function Home() {
   const router = useRouter()
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false)
   
   // Disable scrolling on home page
   useEffect(() => {
@@ -31,12 +32,32 @@ export default function Home() {
     };
   }, []);
   
-  // Redirect if already connected
+  // Check if user is already authenticated with backend
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/user', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          // User is already authenticated with backend
+          router.push('/dashboard');
+        }
+      } catch (err) {
+        console.error('Error checking authentication:', err);
+      } finally {
+        setHasCheckedAuth(true);
+      }
+    };
+    
     if (isConnected) {
-      router.push('/dashboard')
+      checkAuth();
+    } else {
+      setHasCheckedAuth(true);
     }
-  }, [isConnected, router])
+  }, [isConnected, router]);
   
   // Handle connection and signing
   const handleConnect = async () => {
@@ -86,11 +107,10 @@ export default function Home() {
               message,
               signature,
             }),
+            credentials: 'include',
           });
           
           if (response.ok) {
-            const data = await response.json();
-            
             // Wait a moment for cookies to be set before redirecting
             setTimeout(() => {
               // Force a hard navigation to make sure cookies are processed
@@ -117,6 +137,16 @@ export default function Home() {
     } finally {
       setIsSigningIn(false)
     }
+  }
+
+  // Show loading while checking authentication
+  if (isConnected && !hasCheckedAuth) {
+    return (
+      <PageWrapper className="flex flex-col items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-light-green"></div>
+        <p className="mt-4 text-gray-300">Checking authentication...</p>
+      </PageWrapper>
+    );
   }
 
   return (

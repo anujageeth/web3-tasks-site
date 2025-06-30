@@ -9,7 +9,7 @@ import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
 import { GlowingBorder } from '@/components/ui/glowing-border'
 import { motion } from 'framer-motion'
-import { FiExternalLink, FiPlus, FiUser, FiCalendar, FiUsers, FiTrendingUp, FiStar, FiActivity, FiTag } from 'react-icons/fi'
+import { FiExternalLink, FiPlus, FiUser, FiCalendar, FiUsers, FiTrendingUp, FiStar, FiActivity, FiTag, FiUserPlus } from 'react-icons/fi'
 import { FaCheckCircle } from 'react-icons/fa'
 import { CursorGlow } from '@/components/ui/cursor-glow'
 import { InfiniteMovingCards } from '@/components/ui/infinite-moving-cards'
@@ -38,6 +38,7 @@ export default function Dashboard() {
   const router = useRouter()
   const { address, isConnected } = useAccount()
   const [loading, setLoading] = useState(true)
+  const [authChecked, setAuthChecked] = useState(false)
   const [userData, setUserData] = useState<any>(null)
   const [createdEvents, setCreatedEvents] = useState<Event[]>([])
   const [joinedEvents, setJoinedEvents] = useState<Event[]>([])
@@ -45,61 +46,76 @@ export default function Dashboard() {
   const [eventsLoading, setEventsLoading] = useState(true)
   const [latestLoading, setLatestLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [referralStats, setReferralStats] = useState({
+    referralsCount: 0,
+    referralPoints: 0
+  });
 
   useEffect(() => {
-    if (!isConnected) {
-      router.push('/login')
-      return
-    }
-    
-    setLoading(true)
-    
-    // Parallel data fetching
-    Promise.all([
-      // User authentication check
-      fetch('/api/auth/user'),
-      // Pre-fetch crucial data
-      fetch('/api/events?page=1&limit=3'),
-      fetch('/api/events/user/created'),
-      fetch('/api/events/user/joined')
-    ])
-    .then(async ([userRes, latestRes, createdRes, joinedRes]) => {
-      if (!userRes.ok) {
-        throw new Error(`Authentication failed: ${userRes.status}`);
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/user', {
+          credentials: 'include'
+        });
+        
+        if (!res.ok) {
+          // User is not authenticated with the backend
+          if (isConnected) {
+            // They have a wallet connected but not authenticated
+            router.push('/'); // Send to home to sign message
+          } else {
+            // Not connected at all
+            router.push('/');
+          }
+          return;
+        }
+        
+        // User is authenticated, fetch their data
+        const userData = await res.json();
+        setUserData(userData);
+        setAuthChecked(true);
+        
+        // Now fetch other data in parallel
+        Promise.all([
+          fetch('/api/events?page=1&limit=3'),
+          fetch('/api/events/user/created'),
+          fetch('/api/events/user/joined'),
+          fetch('/api/referrals/stats')
+        ])
+        .then(async ([latestRes, createdRes, joinedRes, referralRes]) => {
+          // Process responses in parallel
+          const [latestData, createdData, joinedData, referralData] = await Promise.all([
+            latestRes.ok ? latestRes.json() : {events: []},
+            createdRes.ok ? createdRes.json() : [],
+            joinedRes.ok ? joinedRes.json() : [],
+            referralRes.ok ? referralRes.json() : {referralsCount: 0, referralPoints: 0}
+          ]);
+          
+          // Update state with all data
+          setLatestEvents(latestData.events || []);
+          setCreatedEvents(createdData || []);
+          setJoinedEvents(joinedData || []);
+          setReferralStats({
+            referralsCount: referralData.referralsCount || 0,
+            referralPoints: referralData.referralPoints || 0
+          });
+          
+          // Set loading states
+          setLatestLoading(false);
+          setEventsLoading(false);
+          setLoading(false);
+        });
+        
+      } catch (err) {
+        console.error('Error checking authentication:', err);
+        setError('Failed to authenticate');
+        setAuthChecked(true);
+        setLoading(false);
       }
-      
-      // Process user data
-      const userData = await userRes.json();
-      setUserData(userData);
-      
-      // Process other responses in parallel
-      const [latestData, createdData, joinedData] = await Promise.all([
-        latestRes.ok ? latestRes.json() : {events: []},
-        createdRes.ok ? createdRes.json() : [],
-        joinedRes.ok ? joinedRes.json() : []
-      ]);
-      
-      // Update state once with all data
-      setLatestEvents(latestData.events || []);
-      setCreatedEvents(createdData || []);
-      setJoinedEvents(joinedData || []);
-      
-      // Set loading states
-      setLatestLoading(false);
-      setEventsLoading(false);
-      setLoading(false);
-    })
-    .catch((err) => {
-      console.error('Error loading dashboard data:', err);
-      setError(err.message);
-      setLoading(false);
-      
-      // Don't redirect immediately, show error first
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
-    });
-  }, [isConnected, router])
+    };
+    
+    checkAuth();
+  }, [router, isConnected]);
 
   const handleSignOut = async () => {
     // First disconnect wallet
@@ -107,8 +123,40 @@ export default function Dashboard() {
     
     // Then clear server-side session
     fetch('/api/auth/logout', { method: 'POST' })
-      .then(() => router.push('/login'))
+      .then(() => router.push('/'))
   }
+
+  // Render a referral stats component for the dashboard
+  const ReferralStatsCard = () => {
+    return (
+      <div className="bg-black/30 rounded-xl border border-gray-700/30 p-4 hover:border-light-green/20 transition-all">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-medium flex items-center">
+            <FiUserPlus className="mr-2 text-light-green" /> 
+            Referrals
+          </h3>
+          <Link href="/profile" className="text-xs text-light-green hover:underline">
+            View details
+          </Link>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4 mt-2">
+          <div className="text-center p-2 bg-black/20 rounded-lg">
+            <p className="text-2xl font-bold text-light-green">
+              {referralStats.referralsCount}
+            </p>
+            <p className="text-xs text-gray-400">People Referred</p>
+          </div>
+          <div className="text-center p-2 bg-black/20 rounded-lg">
+            <p className="text-2xl font-bold text-light-green">
+              {referralStats.referralPoints}
+            </p>
+            <p className="text-xs text-gray-400">Points Earned</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -212,6 +260,23 @@ export default function Dashboard() {
     );
   }
 
+  if (error) {
+    return (
+      <PageWrapper className="flex flex-col items-center justify-center">
+        <GlassCard className="p-6 max-w-md text-center">
+          <h2 className="text-xl text-red-400 mb-4">Authentication Error</h2>
+          <p className="text-gray-300 mb-6">{error}</p>
+          <button 
+            onClick={() => router.push('/')}
+            className="glass-button py-2 px-4"
+          >
+            Return to Home
+          </button>
+        </GlassCard>
+      </PageWrapper>
+    )
+  }
+
   return (
     <PageWrapper>
       <CursorGlow />
@@ -280,11 +345,23 @@ export default function Dashboard() {
           </GlassCard>
         </GlowingBorder>
         
+        {/* Referral Stats Card - add below user profile */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mb-8"
+        >
+          <GlassCard>
+            <ReferralStatsCard />
+          </GlassCard>
+        </motion.div>
+        
         {/* Latest Events Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
           className="mb-8"
         >
           <GlassCard>

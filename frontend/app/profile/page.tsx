@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { FaTwitter, FaCheckCircle } from 'react-icons/fa'
-import { FiArrowLeft, FiCalendar, FiAward, FiEdit, FiUser, FiExternalLink } from 'react-icons/fi'
+import { FiArrowLeft, FiCalendar, FiAward, FiEdit, FiUser, FiExternalLink, FiSend } from 'react-icons/fi'
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
 import { Button } from '@/components/ui/button'
@@ -27,6 +27,8 @@ interface ProfileData {
   createdEvents: number;
   joinedEvents: number;
   verified: boolean;  // Add this line
+  telegramConnected?: boolean;
+  telegramUsername?: string;
 }
 
 interface TaskHistory {
@@ -117,7 +119,9 @@ export default function ProfilePage() {
         totalPoints: data.totalPoints || 0,
         createdEvents: data.createdEvents?.length || 0,
         joinedEvents: data.joinedEvents?.length || 0,
-        verified: data.verified || false  // Add this line
+        verified: data.verified || false,  // Add this line
+        telegramConnected: !!data.telegramId,
+        telegramUsername: data.telegramUsername,
       })
       
       setLoading(false)
@@ -457,6 +461,16 @@ export default function ProfilePage() {
                         <span className="text-sm text-gray-400">Not connected</span>
                       )}
                     </div>
+                    
+                    {/* Add this section where you show Twitter connection */}
+                    {profileData?.telegramConnected && (
+                      <div className="flex items-center mt-2">
+                        <FiSend className="text-[#0088cc] mr-2" />
+                        <span className="text-gray-300 text-sm">
+                          Connected to <span className="text-[#0088cc]">@{profileData.telegramUsername}</span>
+                        </span>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Twitter connect button */}

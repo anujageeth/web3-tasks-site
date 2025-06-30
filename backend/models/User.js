@@ -54,7 +54,17 @@ const UserSchema = new mongoose.Schema({
   twitterUsername: String,
   twitterTokenKey: String,
   twitterTokenSecret: String,
-  
+
+  // Telegram auth data
+  telegramId: {
+    type: String,
+    sparse: true
+  },
+  telegramUsername: String,
+  telegramFirstName: String,
+  telegramLastName: String,
+  telegramPhotoUrl: String,
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

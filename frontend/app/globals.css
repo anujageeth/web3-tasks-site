@@ -370,3 +370,9 @@ canvas {
   position: relative;
   z-index: 10;
 }
+
+/* Add to your global CSS file */
+.telegramLoginWidget iframe {
+  border-radius: 0.375rem !important;
+  background-color: transparent !important;
+}

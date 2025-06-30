@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { FaTwitter, FaCheckCircle } from 'react-icons/fa'
-import { FiArrowLeft, FiCalendar, FiUser, FiExternalLink } from 'react-icons/fi'
+import { FiArrowLeft, FiCalendar, FiUser, FiExternalLink, FiSend } from 'react-icons/fi'
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
 import { GlowingBorder } from '@/components/ui/glowing-border'
@@ -24,6 +24,8 @@ interface ProfileData {
   createdEvents: number;
   joinedEvents: number;
   verified: boolean;  // Add this line
+  telegramConnected?: boolean;
+  telegramUsername?: string;
 }
 
 interface CreatedEvent {
@@ -86,7 +88,9 @@ export default function UserProfilePage() {
         totalPoints: userData.totalPoints || 0,
         createdEvents: userData.createdEvents?.length || 0,
         joinedEvents: userData.joinedEvents?.length || 0,
-        verified: userData.verified || false  // Add this line
+        verified: userData.verified || false,  // Add this line
+        telegramConnected: userData.telegramId ? true : false,
+        telegramUsername: userData.telegramUsername
       })
       
       // After profile is loaded, fetch created events
@@ -310,6 +314,15 @@ export default function UserProfilePage() {
                           >
                             @{profileData.twitterUsername} <FiExternalLink className="ml-1" size={12} />
                           </a>
+                        </div>
+                      )}
+
+                      {profileData?.telegramConnected && (
+                        <div className="flex items-center mt-2">
+                          <FiSend className="text-[#0088cc] mr-2" />
+                          <span className="text-gray-300 text-sm">
+                            Connected to <span className="text-[#0088cc]">@{profileData.telegramUsername}</span>
+                          </span>
                         </div>
                       )}
                     </div>

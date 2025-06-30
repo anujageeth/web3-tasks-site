@@ -1,13 +1,20 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
 import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
-import { FiArrowLeft, FiSave, FiUser, FiMail, FiTwitter } from 'react-icons/fi'
+import { FiArrowLeft, FiSave, FiUser, FiMail, FiTwitter, FiSend } from 'react-icons/fi'
+
+// Add this type declaration for TypeScript to recognize the global function
+declare global {
+  interface Window {
+    onTelegramAuth: (user: any) => void;
+  }
+}
 
 export default function EditProfilePage() {
   const router = useRouter()
@@ -26,6 +33,10 @@ export default function EditProfilePage() {
   
   const [twitterConnected, setTwitterConnected] = useState(false)
   const [twitterUsername, setTwitterUsername] = useState('')
+  const [telegramConnected, setTelegramConnected] = useState(false)
+  const [telegramUsername, setTelegramUsername] = useState('')
+  
+  const telegramLoginRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!isConnected) {
@@ -35,6 +46,58 @@ export default function EditProfilePage() {
     
     fetchProfileData()
   }, [isConnected, router])
+  
+  // Add this effect to initialize the Telegram login widget
+  useEffect(() => {
+    if (!loading && !telegramConnected && telegramLoginRef.current) {
+      // Remove any existing script
+      const existingScript = document.getElementById('telegram-login-widget')
+      if (existingScript) existingScript.remove()
+      
+      // Create script element
+      const script = document.createElement('script')
+      script.id = 'telegram-login-widget'
+      script.src = 'https://telegram.org/js/telegram-widget.js?22'
+      script.async = true
+      
+      // Set the attributes
+      script.setAttribute('data-telegram-login', 'CRYPTOKEN_tasksbot')
+      script.setAttribute('data-size', 'medium')
+      script.setAttribute('data-radius', '4')
+      script.setAttribute('data-request-access', 'write')
+      script.setAttribute('data-userpic', 'false')
+      script.setAttribute('data-onauth', 'onTelegramAuth(user)')
+      
+      // Append the script to the container
+      telegramLoginRef.current.appendChild(script)
+      
+      // Create global callback function
+      window.onTelegramAuth = function(user) {
+        // Send the Telegram auth data to the backend
+        fetch('/api/telegram/widget-auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(user)
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            setTelegramConnected(true)
+            setTelegramUsername(user.username || '')
+            setSuccess('Telegram account connected successfully')
+          } else {
+            setError('Failed to connect Telegram account: ' + (data.message || ''))
+          }
+        })
+        .catch(err => {
+          console.error('Error connecting Telegram:', err)
+          setError('Error connecting Telegram account')
+        })
+      }
+    }
+  }, [loading, telegramConnected])
   
   const fetchProfileData = async () => {
     setLoading(true)
@@ -54,6 +117,11 @@ export default function EditProfilePage() {
       if (data.twitterId) {
         setTwitterConnected(true)
         setTwitterUsername(data.twitterUsername || '')
+      }
+      
+      if (data.telegramId) {
+        setTelegramConnected(true)
+        setTelegramUsername(data.telegramUsername || '')
       }
     } catch (err: any) {
       console.error('Profile fetch error:', err)
@@ -126,6 +194,25 @@ export default function EditProfilePage() {
     } catch (err: any) {
       console.error('Twitter disconnect error:', err)
       setError(err.message || 'Failed to disconnect Twitter')
+    }
+  }
+  
+  const handleDisconnectTelegram = async () => {
+    try {
+      const res = await fetch('/api/telegram/disconnect', {
+        method: 'POST'
+      })
+      
+      if (res.ok) {
+        setTelegramConnected(false)
+        setTelegramUsername('')
+        setSuccess('Telegram disconnected successfully')
+      } else {
+        throw new Error('Failed to disconnect Telegram')
+      }
+    } catch (err: any) {
+      console.error('Telegram disconnect error:', err)
+      setError(err.message || 'Failed to disconnect Telegram')
     }
   }
 
@@ -251,40 +338,76 @@ export default function EditProfilePage() {
             <GlassCard animate withBorder>
               <h2 className="text-xl font-semibold mb-6 text-white">Connected Accounts</h2>
               
-              <div className="flex justify-between items-center p-4 border border-gray-700 rounded-xl">
-                <div className="flex items-center">
-                  <FiTwitter className="text-blue-400 mr-3 text-xl" />
-                  <div>
-                    <h3 className="font-medium text-white">Twitter</h3>
-                    {twitterConnected ? (
-                      <p className="text-sm text-gray-400">
-                        Connected as <span className="text-blue-400">@{twitterUsername}</span>
-                      </p>
-                    ) : (
-                      <p className="text-sm text-gray-400">
-                        Connect your Twitter account to verify tasks
-                      </p>
-                    )}
+              <div className="flex flex-col gap-4">
+                {/* Twitter Connection */}
+                <div className="flex justify-between items-center p-4 border border-gray-700 rounded-xl">
+                  <div className="flex items-center">
+                    <FiTwitter className="text-blue-400 mr-3 text-xl" />
+                    <div>
+                      <h3 className="font-medium text-white">Twitter</h3>
+                      {twitterConnected ? (
+                        <p className="text-sm text-gray-400">
+                          Connected as <span className="text-blue-400">@{twitterUsername}</span>
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-400">
+                          Connect your Twitter account to verify tasks
+                        </p>
+                      )}
+                    </div>
                   </div>
+                  
+                  {twitterConnected ? (
+                    <Button
+                      variant="outline"
+                      onClick={handleDisconnectTwitter}
+                      size="sm"
+                    >
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={handleConnectTwitter}
+                      size="sm"
+                    >
+                      Connect
+                    </Button>
+                  )}
                 </div>
                 
-                {twitterConnected ? (
-                  <Button
-                    variant="outline"
-                    onClick={handleDisconnectTwitter}
-                    size="sm"
-                  >
-                    Disconnect
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    onClick={handleConnectTwitter}
-                    size="sm"
-                  >
-                    Connect
-                  </Button>
-                )}
+                {/* Telegram Connection */}
+                <div className="flex justify-between items-center p-4 border border-gray-700 rounded-xl">
+                  <div className="flex items-center">
+                    <FiSend className="text-[#0088cc] mr-3 text-xl" />
+                    <div>
+                      <h3 className="font-medium text-white">Telegram</h3>
+                      {telegramConnected ? (
+                        <p className="text-sm text-gray-400">
+                          Connected as <span className="text-[#0088cc]">@{telegramUsername}</span>
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-400">
+                          Connect your Telegram account to receive notifications
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {telegramConnected ? (
+                    <Button
+                      variant="outline"
+                      onClick={handleDisconnectTelegram}
+                      size="sm"
+                    >
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <div ref={telegramLoginRef} className="telegramLoginWidget">
+                      {/* Telegram login button will be inserted here by script */}
+                    </div>
+                  )}
+                </div>
               </div>
             </GlassCard>
           </motion.div>
