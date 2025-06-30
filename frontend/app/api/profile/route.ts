@@ -25,7 +25,24 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    
+    // Map the backend response to include the connection status
+    const profileData = {
+      ...data,
+      twitterConnected: !!data.twitterId,
+      telegramConnected: !!data.telegramId
+    };
+    
+    console.log('Profile data being returned:', {
+      twitterId: data.twitterId,
+      twitterUsername: data.twitterUsername,
+      twitterConnected: !!data.twitterId,
+      telegramId: data.telegramId,
+      telegramUsername: data.telegramUsername,
+      telegramConnected: !!data.telegramId
+    });
+    
+    return NextResponse.json(profileData);
   } catch (error) {
     console.error('API error:', error);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });

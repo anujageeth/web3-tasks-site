@@ -24,8 +24,10 @@ router.get('/', auth, async (req, res) => {
       createdAt: user.createdAt,
       twitterConnected: !!user.twitterId,
       twitterUsername: user.twitterUsername,
-      telegramConnected: !!user.telegramId,   // Add this
-      telegramUsername: user.telegramUsername, // Add this
+      twitterId: user.twitterId, // Include the actual twitterId field
+      telegramConnected: !!user.telegramId,
+      telegramUsername: user.telegramUsername,
+      telegramId: user.telegramId, // Include the actual telegramId field
       totalPoints: user.totalPoints,
       createdEvents: user.createdEvents.length,
       joinedEvents: user.joinedEvents.length,

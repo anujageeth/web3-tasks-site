@@ -106,6 +106,8 @@ export default function ProfilePage() {
       
       const data = await res.json()
       
+      console.log('Received profile data:', data); // Add this for debugging
+      
       setProfileData({
         _id: data._id,
         firstName: data.firstName || '',
@@ -114,13 +116,13 @@ export default function ProfilePage() {
         address: data.address || '',
         createdAt: data.createdAt,
         lastLogin: data.lastLogin,
-        twitterConnected: !!data.twitterId,
+        twitterConnected: data.twitterConnected || !!data.twitterId, // Check both fields
         twitterUsername: data.twitterUsername,
         totalPoints: data.totalPoints || 0,
         createdEvents: data.createdEvents?.length || 0,
         joinedEvents: data.joinedEvents?.length || 0,
-        verified: data.verified || false,  // Add this line
-        telegramConnected: !!data.telegramId,
+        verified: data.verified || false,
+        telegramConnected: data.telegramConnected || !!data.telegramId, // Check both fields
         telegramUsername: data.telegramUsername,
       })
       

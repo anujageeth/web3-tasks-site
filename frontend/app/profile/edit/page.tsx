@@ -108,18 +108,23 @@ export default function EditProfilePage() {
       }
       
       const data = await res.json()
+      
+      console.log('Edit page received profile data:', data); // Add this for debugging
+      
       setFormData({
         firstName: data.firstName || '',
         lastName: data.lastName || '',
         email: data.email || '',
       })
       
-      if (data.twitterId) {
+      // Check both twitterConnected and twitterId fields
+      if (data.twitterConnected || data.twitterId) {
         setTwitterConnected(true)
         setTwitterUsername(data.twitterUsername || '')
       }
       
-      if (data.telegramId) {
+      // Check both telegramConnected and telegramId fields
+      if (data.telegramConnected || data.telegramId) {
         setTelegramConnected(true)
         setTelegramUsername(data.telegramUsername || '')
       }
