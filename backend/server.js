@@ -9,8 +9,37 @@ const app = express();
 
 // Improved CORS configuration
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+const allowedOrigins = [
+  frontendUrl,
+  'https://api.twitter.com',
+  'https://web3-tasks-site.vercel.app', // Your main Vercel domain
+  'http://localhost:3000', // Local Next.js dev
+  'http://localhost:3001', // Local frontend
+];
+
 app.use(cors({
-  origin: [frontendUrl, 'https://api.twitter.com'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in allowed list or matches pattern
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return allowedOrigin === origin;
+      }
+      if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']

@@ -16,15 +16,31 @@ export function AppNav() {
     setShowNav(isConnected);
   }, [isConnected]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // First call the logout API to clear server-side session
+      await fetch('/api/auth/logout', { 
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (err) {
+      console.error('Error logging out:', err);
+    }
+    
     // Disconnect web3 wallet
     disconnect();
 
-    // Clear authentication tokens/cookies
+    // Clear authentication tokens/cookies more thoroughly
+    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=;";
     document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    
+    // Clear any other potential auth cookies
+    document.cookie.split(";").forEach(function(c) { 
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+    });
 
-    // Redirect to login page
-    router.push("/login");
+    // Force a hard redirect to home page with logout flag to ensure clean state
+    window.location.href = "/?logout=true";
   };
 
   const navItems = [

@@ -17,6 +17,8 @@ export default function Home() {
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false)
+  const [isAuthenticatedWithBackend, setIsAuthenticatedWithBackend] = useState(false)
+  const [isLoggedOut, setIsLoggedOut] = useState(false)
   
   // Disable scrolling on home page
   useEffect(() => {
@@ -32,10 +34,25 @@ export default function Home() {
     };
   }, []);
   
-  // Check if user is already authenticated with backend
+  // Check if user is already authenticated with backend only on initial load
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log('Checking authentication status on page load...');
+        
+        // Check URL params to see if this is from a logout
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('logout') === 'true') {
+          console.log('Logout detected, clearing any remaining auth state');
+          setIsLoggedOut(true);
+          setIsAuthenticatedWithBackend(false);
+          setHasCheckedAuth(true);
+          
+          // Clear the URL parameter
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return;
+        }
+        
         const response = await fetch('/api/auth/user', {
           method: 'GET',
           credentials: 'include'
@@ -43,21 +60,30 @@ export default function Home() {
         
         if (response.ok) {
           // User is already authenticated with backend
+          console.log('User already authenticated, redirecting to dashboard');
+          setIsAuthenticatedWithBackend(true);
           router.push('/dashboard');
+          return;
+        } else {
+          console.log('User not authenticated, status:', response.status);
+          setIsAuthenticatedWithBackend(false);
+          
+          // If we get a 401, make sure to clear any stale cookies
+          if (response.status === 401) {
+            document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          }
         }
       } catch (err) {
         console.error('Error checking authentication:', err);
+        setIsAuthenticatedWithBackend(false);
       } finally {
         setHasCheckedAuth(true);
       }
     };
     
-    if (isConnected) {
-      checkAuth();
-    } else {
-      setHasCheckedAuth(true);
-    }
-  }, [isConnected, router]);
+    // Only check auth once on initial page load
+    checkAuth();
+  }, [router]);
   
   // Handle connection and signing
   const handleConnect = async () => {
@@ -84,11 +110,12 @@ export default function Home() {
           const walletClient = createWalletClient({
             account: address,
             chain: mainnet,
-            transport: custom(provider)
+            transport: custom(provider as any)
           })
           
           // Sign the message
           const signature = await walletClient.signMessage({
+            account: address as `0x${string}`,
             message
           })
           
@@ -111,6 +138,7 @@ export default function Home() {
           });
           
           if (response.ok) {
+            console.log('Authentication successful, redirecting to dashboard...');
             // Wait a moment for cookies to be set before redirecting
             setTimeout(() => {
               // Force a hard navigation to make sure cookies are processed
@@ -128,19 +156,19 @@ export default function Home() {
           }
         } catch (err) {
           console.error('Signing error:', err);
-          setError(`Signature error: ${err.message}`);
+          setError(`Signature error: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
       }
     } catch (err) {
       console.error('Authentication error:', err)
-      setError(`Authentication error: ${err.message}`)
+      setError(`Authentication error: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setIsSigningIn(false)
     }
   }
 
-  // Show loading while checking authentication
-  if (isConnected && !hasCheckedAuth) {
+  // Show loading while checking authentication on initial page load
+  if (!hasCheckedAuth) {
     return (
       <PageWrapper className="flex flex-col items-center justify-center h-screen">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-light-green"></div>
@@ -177,27 +205,36 @@ export default function Home() {
         >
           <button 
             onClick={handleConnect}
-            disabled={isSigningIn}
-            className="glass-button inline-flex items-center px-8 py-4 text-lg"
+            disabled={isSigningIn || isAuthenticatedWithBackend}
+            className="glass-button inline-flex items-center px-8 py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSigningIn
               ? 'Signing in...'
               : isConnected
-                ? 'Sign Message to Login'
+                ? (isAuthenticatedWithBackend ? 'Redirecting...' : 'Sign Message to Login')
                 : 'Connect Wallet'
             } 
             <FiArrowRight className="ml-2" />
           </button>
           
           {isSigningIn && (
-            <p className="mt-4 text-center text-sm text-gray-300">
-              Please sign the message in your wallet...
-            </p>
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-300 mb-2">
+                Please sign the message in your wallet...
+              </p>
+              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-light-green mx-auto"></div>
+            </div>
           )}
           
           {error && (
             <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl max-w-md mx-auto">
               {error}
+            </div>
+          )}
+          
+          {isLoggedOut && (
+            <div className="mt-4 p-3 bg-green-500/20 border border-green-500/30 text-green-400 rounded-xl max-w-md mx-auto">
+              Successfully logged out. Connect your wallet to sign in again.
             </div>
           )}
         </motion.div>

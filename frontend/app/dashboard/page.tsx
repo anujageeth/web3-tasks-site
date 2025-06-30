@@ -118,12 +118,48 @@ export default function Dashboard() {
   }, [router, isConnected]);
 
   const handleSignOut = async () => {
-    // First disconnect wallet
-    await appKitModal.disconnect()
+    try {
+      // First call the logout API to clear server-side session
+      const response = await fetch('/api/auth/logout', { 
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        console.log('Server logout successful');
+      }
+    } catch (err) {
+      console.error('Error logging out from server:', err);
+    }
     
-    // Then clear server-side session
-    fetch('/api/auth/logout', { method: 'POST' })
-      .then(() => router.push('/'))
+    try {
+      // Disconnect wallet
+      await appKitModal.disconnect();
+      console.log('Wallet disconnected');
+    } catch (err) {
+      console.error('Error disconnecting wallet:', err);
+    }
+    
+    // Clear all possible cookie variations more aggressively
+    const cookiesToClear = [
+      'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=;',
+      'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;',
+      'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=localhost;',
+      'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.localhost;'
+    ];
+    
+    cookiesToClear.forEach(cookie => {
+      document.cookie = cookie;
+    });
+    
+    // Clear any cached data
+    setUserData(null);
+    setCreatedEvents([]);
+    setJoinedEvents([]);
+    setLatestEvents([]);
+    
+    // Force a complete page reload to clear all state and cookies
+    window.location.href = "/?logout=true";
   }
 
   // Render a referral stats component for the dashboard

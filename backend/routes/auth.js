@@ -68,13 +68,15 @@ router.post('/verify', async (req, res) => {
         { expiresIn: '7d' }
       );
       
-      // Set cookie with more browser-compatible settings
+      // Set cookie with cross-origin compatible settings
+      const isProduction = process.env.NODE_ENV === 'production';
       res.cookie('token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction,
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        sameSite: 'lax', // Changed to 'lax' for better browser compatibility
-        path: '/'
+        sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-origin in production
+        path: '/',
+        domain: isProduction ? undefined : undefined // Let browser handle domain
       });
       
       console.log('Authentication successful, token generated');
@@ -96,6 +98,13 @@ router.get('/user', auth, async (req, res) => {
   try {
     console.log('Get user request for user ID:', req.user._id);
     const user = await User.findById(req.user._id).select('-nonce');
+    
+    if (!user) {
+      console.log('User not found in database');
+      return res.status(401).json({ message: 'User not found' });
+    }
+    
+    console.log('Returning user data for address:', user.address);
     res.json(user);
   } catch (error) {
     console.error('Get user error:', error);
@@ -110,10 +119,11 @@ router.get('/test-auth', auth, (req, res) => {
 
 // Logout
 router.post('/logout', (req, res) => {
+  const isProduction = process.env.NODE_ENV === 'production';
   res.clearCookie('token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'none',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
     path: '/'
   });
   res.json({ success: true });
