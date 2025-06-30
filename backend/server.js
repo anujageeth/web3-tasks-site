@@ -15,6 +15,7 @@ const allowedOrigins = [
   'https://web3-tasks-site.vercel.app', // Your main Vercel domain
   'http://localhost:3000', // Local Next.js dev
   'http://localhost:3001', // Local frontend
+  'https://4282-124-43-67-64.ngrok-free.app', // Example Ngrok URL
 ];
 
 app.use(cors({

@@ -173,9 +173,33 @@ export default function EditProfilePage() {
     }
   }
   
-  const handleConnectTwitter = () => {
-    // Redirect to Twitter auth endpoint
-    window.location.href = '/api/twitter/auth'
+  const handleConnectTwitter = async () => {
+    try {
+      setError(null)
+      
+      // Call the API to get the Twitter auth URL
+      const response = await fetch('/api/twitter/auth', {
+        method: 'GET',
+        credentials: 'include'
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to get Twitter auth URL')
+      }
+      
+      const data = await response.json()
+      
+      if (data.authUrl) {
+        // Redirect to Twitter for authorization
+        window.location.href = data.authUrl
+      } else {
+        throw new Error('No authorization URL received')
+      }
+    } catch (err: any) {
+      console.error('Twitter connect error:', err)
+      setError(err.message || 'Failed to connect Twitter')
+    }
   }
   
   const handleDisconnectTwitter = async () => {

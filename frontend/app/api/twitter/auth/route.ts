@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     // Forward to backend
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
     
-    // Pass the callbackUrl as a query parameter instead of in the body
+    // Pass the callbackUrl as a query parameter
     const requestUrl = `${backendUrl}/api/twitter/auth?callbackUrl=${encodeURIComponent(callbackUrl)}`;
     
     const response = await fetch(requestUrl, {
@@ -38,7 +38,14 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    
+    // Make sure we're returning the auth URL in the expected format
+    if (!data.authUrl) {
+      console.error('No authUrl in backend response:', data);
+      return NextResponse.json({ message: 'Invalid response from Twitter auth service' }, { status: 500 });
+    }
+    
+    return NextResponse.json({ authUrl: data.authUrl });
   } catch (error: any) {
     console.error('Twitter auth error:', error);
     return NextResponse.json({ message: `Twitter auth error: ${error.message}` }, { status: 500 });
