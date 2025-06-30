@@ -463,16 +463,26 @@ export default function ProfilePage() {
                         <span className="text-sm text-gray-400">Not connected</span>
                       )}
                     </div>
-                    
-                    {/* Add this section where you show Twitter connection */}
-                    {profileData?.telegramConnected && (
-                      <div className="flex items-center mt-2">
-                        <FiSend className="text-[#0088cc] mr-2" />
-                        <span className="text-gray-300 text-sm">
-                          Connected to <span className="text-[#0088cc]">@{profileData.telegramUsername}</span>
-                        </span>
+
+                    <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
+                      <div className="flex items-center">
+                        <FiSend className="mr-2 text-light-green" />
+                        <span className="text-sm">Telegram</span>
                       </div>
-                    )}
+                      {profileData?.telegramConnected ? (
+                        <a 
+                          href={`https://t.me/${profileData.telegramUsername}`}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-400 hover:underline flex items-center"
+                        >
+                          @{profileData.telegramUsername} <FiExternalLink className="ml-1" size={12} />
+                        </a>
+                      ) : (
+                        <span className="text-sm text-gray-400">Not connected</span>
+                      )}
+                    </div>
+                    
                   </div>
                   
                   {/* Twitter connect button */}
