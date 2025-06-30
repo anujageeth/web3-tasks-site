@@ -6,6 +6,7 @@ import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { FaTwitter, FaCheckCircle } from 'react-icons/fa'
 import { FiArrowLeft, FiCalendar, FiAward, FiEdit, FiUser, FiExternalLink, FiSend } from 'react-icons/fi'
+import { SiDiscord } from 'react-icons/si' // Add this import
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
 import { Button } from '@/components/ui/button'
@@ -26,9 +27,11 @@ interface ProfileData {
   totalPoints: number;
   createdEvents: number;
   joinedEvents: number;
-  verified: boolean;  // Add this line
+  verified: boolean;
   telegramConnected?: boolean;
   telegramUsername?: string;
+  discordConnected?: boolean; // Add this line
+  discordUsername?: string; // Add this line
 }
 
 interface TaskHistory {
@@ -124,6 +127,8 @@ export default function ProfilePage() {
         verified: data.verified || false,
         telegramConnected: data.telegramConnected || !!data.telegramId, // Check both fields
         telegramUsername: data.telegramUsername,
+        discordConnected: data.discordConnected || !!data.discordId, // Add this line
+        discordUsername: data.discordUsername, // Add this line
       })
       
       setLoading(false)
@@ -478,6 +483,20 @@ export default function ProfilePage() {
                         >
                           @{profileData.telegramUsername} <FiExternalLink className="ml-1" size={12} />
                         </a>
+                      ) : (
+                        <span className="text-sm text-gray-400">Not connected</span>
+                      )}
+                    </div>
+
+                    <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
+                      <div className="flex items-center">
+                        <SiDiscord className="mr-2 text-light-green" />
+                        <span className="text-sm">Discord</span>
+                      </div>
+                      {profileData?.discordConnected ? (
+                        <span className="text-sm text-[#5865F2]">
+                          {profileData.discordUsername}
+                        </span>
                       ) : (
                         <span className="text-sm text-gray-400">Not connected</span>
                       )}

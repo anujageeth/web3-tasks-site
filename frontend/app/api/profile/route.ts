@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
     const profileData = {
       ...data,
       twitterConnected: !!data.twitterId,
-      telegramConnected: !!data.telegramId
+      telegramConnected: !!data.telegramId,
+      discordConnected: !!data.discordId // Add this line
     };
     
     console.log('Profile data being returned:', {
@@ -39,7 +40,10 @@ export async function GET(request: NextRequest) {
       twitterConnected: !!data.twitterId,
       telegramId: data.telegramId,
       telegramUsername: data.telegramUsername,
-      telegramConnected: !!data.telegramId
+      telegramConnected: !!data.telegramId,
+      discordId: data.discordId, // Add this line
+      discordUsername: data.discordUsername, // Add this line
+      discordConnected: !!data.discordId // Add this line
     });
     
     return NextResponse.json(profileData);

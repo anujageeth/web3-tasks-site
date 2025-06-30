@@ -24,10 +24,13 @@ router.get('/', auth, async (req, res) => {
       createdAt: user.createdAt,
       twitterConnected: !!user.twitterId,
       twitterUsername: user.twitterUsername,
-      twitterId: user.twitterId, // Include the actual twitterId field
+      twitterId: user.twitterId,
       telegramConnected: !!user.telegramId,
       telegramUsername: user.telegramUsername,
-      telegramId: user.telegramId, // Include the actual telegramId field
+      telegramId: user.telegramId,
+      discordConnected: !!user.discordId, // Add this line
+      discordUsername: user.discordUsername, // Add this line
+      discordId: user.discordId, // Add this line
       totalPoints: user.totalPoints,
       createdEvents: user.createdEvents.length,
       joinedEvents: user.joinedEvents.length,

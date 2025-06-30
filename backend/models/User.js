@@ -65,6 +65,16 @@ const UserSchema = new mongoose.Schema({
   telegramLastName: String,
   telegramPhotoUrl: String,
 
+  // Discord auth data
+  discordId: {
+    type: String,
+    sparse: true
+  },
+  discordUsername: String,
+  discordDiscriminator: String,
+  discordAccessToken: String,
+  discordRefreshToken: String,
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

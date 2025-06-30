@@ -6,6 +6,7 @@ import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { FaTwitter, FaCheckCircle } from 'react-icons/fa'
 import { FiArrowLeft, FiCalendar, FiUser, FiExternalLink, FiSend } from 'react-icons/fi'
+import { SiDiscord } from 'react-icons/si' // Add this import
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
 import { GlowingBorder } from '@/components/ui/glowing-border'
@@ -23,9 +24,11 @@ interface ProfileData {
   totalPoints: number;
   createdEvents: number;
   joinedEvents: number;
-  verified: boolean;  // Add this line
+  verified: boolean;
   telegramConnected?: boolean;
   telegramUsername?: string;
+  discordConnected?: boolean; // Add this line
+  discordUsername?: string; // Add this line
 }
 
 interface CreatedEvent {
@@ -88,9 +91,11 @@ export default function UserProfilePage() {
         totalPoints: userData.totalPoints || 0,
         createdEvents: userData.createdEvents?.length || 0,
         joinedEvents: userData.joinedEvents?.length || 0,
-        verified: userData.verified || false,  // Add this line
+        verified: userData.verified || false,
         telegramConnected: userData.telegramId ? true : false,
-        telegramUsername: userData.telegramUsername
+        telegramUsername: userData.telegramUsername,
+        discordConnected: userData.discordId ? true : false, // Add this line
+        discordUsername: userData.discordUsername // Add this line
       })
       
       // After profile is loaded, fetch created events
@@ -300,12 +305,12 @@ export default function UserProfilePage() {
                         </span>
                       </div>
                       
-                      {profileData?.twitterConnected && (
-                        <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
-                          <div className="flex items-center">
-                            <FaTwitter className="mr-2 text-light-green" />
-                            <span className="text-sm">Twitter</span>
-                          </div>
+                      <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
+                        <div className="flex items-center">
+                          <FaTwitter className="mr-2 text-light-green" />
+                          <span className="text-sm">Twitter</span>
+                        </div>
+                        {profileData?.twitterConnected ? (
                           <a 
                             href={`https://twitter.com/${profileData.twitterUsername}`}
                             target="_blank" 
@@ -314,17 +319,43 @@ export default function UserProfilePage() {
                           >
                             @{profileData.twitterUsername} <FiExternalLink className="ml-1" size={12} />
                           </a>
-                        </div>
-                      )}
+                        ) : (
+                          <span className="text-sm text-gray-400">Not connected</span>
+                        )}
+                      </div>
 
-                      {profileData?.telegramConnected && (
-                        <div className="flex items-center mt-2">
-                          <FiSend className="text-[#0088cc] mr-2" />
-                          <span className="text-gray-300 text-sm">
-                            Connected to <span className="text-[#0088cc]">@{profileData.telegramUsername}</span>
-                          </span>
+                      <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
+                        <div className="flex items-center">
+                          <FiSend className="mr-2 text-light-green" />
+                          <span className="text-sm">Telegram</span>
                         </div>
-                      )}
+                        {profileData?.telegramConnected ? (
+                          <a 
+                            href={`https://t.me/${profileData.telegramUsername}`}
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-400 hover:underline flex items-center"
+                          >
+                            @{profileData.telegramUsername} <FiExternalLink className="ml-1" size={12} />
+                          </a>
+                        ) : (
+                          <span className="text-sm text-gray-400">Not connected</span>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
+                        <div className="flex items-center">
+                          <SiDiscord className="mr-2 text-light-green" />
+                          <span className="text-sm">Discord</span>
+                        </div>
+                        {profileData?.discordConnected ? (
+                          <span className="text-sm text-[#5865F2]">
+                            {profileData.discordUsername}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-400">Not connected</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </GlassCard>

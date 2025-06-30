@@ -68,6 +68,7 @@ app.use('/api/events', require('./routes/events'));
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/twitter', require('./routes/twitter'));
 app.use('/api/telegram', require('./routes/telegram'));
+app.use('/api/discord', require('./routes/discord')); // Add this line
 
 // Test route
 app.get('/api/test', (req, res) => {

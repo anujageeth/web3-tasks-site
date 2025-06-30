@@ -8,6 +8,7 @@ import { GlassCard } from '@/components/ui/glass-card'
 import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
 import { FiArrowLeft, FiSave, FiUser, FiMail, FiTwitter, FiSend } from 'react-icons/fi'
+import { SiDiscord } from 'react-icons/si' // Add this import
 
 // Add this type declaration for TypeScript to recognize the global function
 declare global {
@@ -35,6 +36,8 @@ export default function EditProfilePage() {
   const [twitterUsername, setTwitterUsername] = useState('')
   const [telegramConnected, setTelegramConnected] = useState(false)
   const [telegramUsername, setTelegramUsername] = useState('')
+  const [discordConnected, setDiscordConnected] = useState(false) // Add this line
+  const [discordUsername, setDiscordUsername] = useState('') // Add this line
   
   const telegramLoginRef = useRef<HTMLDivElement>(null)
 
@@ -127,6 +130,12 @@ export default function EditProfilePage() {
       if (data.telegramConnected || data.telegramId) {
         setTelegramConnected(true)
         setTelegramUsername(data.telegramUsername || '')
+      }
+      
+      // Check both discordConnected and discordId fields
+      if (data.discordConnected || data.discordId) {
+        setDiscordConnected(true)
+        setDiscordUsername(data.discordUsername || '')
       }
     } catch (err: any) {
       console.error('Profile fetch error:', err)
@@ -242,6 +251,56 @@ export default function EditProfilePage() {
     } catch (err: any) {
       console.error('Telegram disconnect error:', err)
       setError(err.message || 'Failed to disconnect Telegram')
+    }
+  }
+
+  // Add Discord connect handler
+  const handleConnectDiscord = async () => {
+    try {
+      setError(null)
+      
+      // Call the API to get the Discord auth URL
+      const response = await fetch('/api/discord/auth', {
+        method: 'GET',
+        credentials: 'include'
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to get Discord auth URL')
+      }
+      
+      const data = await response.json()
+      
+      if (data.authUrl) {
+        // Redirect to Discord for authorization
+        window.location.href = data.authUrl
+      } else {
+        throw new Error('No authorization URL received')
+      }
+    } catch (err: any) {
+      console.error('Discord connect error:', err)
+      setError(err.message || 'Failed to connect Discord')
+    }
+  }
+  
+  // Add Discord disconnect handler
+  const handleDisconnectDiscord = async () => {
+    try {
+      const res = await fetch('/api/discord/disconnect', {
+        method: 'POST'
+      })
+      
+      if (res.ok) {
+        setDiscordConnected(false)
+        setDiscordUsername('')
+        setSuccess('Discord disconnected successfully')
+      } else {
+        throw new Error('Failed to disconnect Discord')
+      }
+    } catch (err: any) {
+      console.error('Discord disconnect error:', err)
+      setError(err.message || 'Failed to disconnect Discord')
     }
   }
 
@@ -435,6 +494,43 @@ export default function EditProfilePage() {
                     <div ref={telegramLoginRef} className="telegramLoginWidget">
                       {/* Telegram login button will be inserted here by script */}
                     </div>
+                  )}
+                </div>
+
+                {/* Discord Connection */}
+                <div className="flex justify-between items-center p-4 border border-gray-700 rounded-xl">
+                  <div className="flex items-center">
+                    <SiDiscord className="text-[#5865F2] mr-3 text-xl" />
+                    <div>
+                      <h3 className="font-medium text-white">Discord</h3>
+                      {discordConnected ? (
+                        <p className="text-sm text-gray-400">
+                          Connected as <span className="text-[#5865F2]">{discordUsername}</span>
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-400">
+                          Connect your Discord account to verify tasks
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {discordConnected ? (
+                    <Button
+                      variant="outline"
+                      onClick={handleDisconnectDiscord}
+                      size="sm"
+                    >
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={handleConnectDiscord}
+                      size="sm"
+                    >
+                      Connect
+                    </Button>
                   )}
                 </div>
               </div>
