@@ -28,9 +28,13 @@ router.get('/', auth, async (req, res) => {
       telegramConnected: !!user.telegramId,
       telegramUsername: user.telegramUsername,
       telegramId: user.telegramId,
-      discordConnected: !!user.discordId, // Add this line
-      discordUsername: user.discordUsername, // Add this line
-      discordId: user.discordId, // Add this line
+      discordConnected: !!user.discordId,
+      discordUsername: user.discordUsername,
+      discordId: user.discordId,
+      googleConnected: !!user.googleId, // Add this line
+      googleEmail: user.googleEmail, // Add this line
+      googleName: user.googleName, // Add this line
+      googleId: user.googleId, // Add this line
       totalPoints: user.totalPoints,
       createdEvents: user.createdEvents.length,
       joinedEvents: user.joinedEvents.length,

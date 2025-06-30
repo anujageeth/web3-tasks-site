@@ -8,7 +8,7 @@ import { GlassCard } from '@/components/ui/glass-card'
 import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
 import { FiArrowLeft, FiSave, FiUser, FiMail, FiTwitter, FiSend } from 'react-icons/fi'
-import { SiDiscord } from 'react-icons/si' // Add this import
+import { SiDiscord, SiGoogle } from 'react-icons/si' // Add SiGoogle import
 
 // Add this type declaration for TypeScript to recognize the global function
 declare global {
@@ -36,8 +36,10 @@ export default function EditProfilePage() {
   const [twitterUsername, setTwitterUsername] = useState('')
   const [telegramConnected, setTelegramConnected] = useState(false)
   const [telegramUsername, setTelegramUsername] = useState('')
-  const [discordConnected, setDiscordConnected] = useState(false) // Add this line
-  const [discordUsername, setDiscordUsername] = useState('') // Add this line
+  const [discordConnected, setDiscordConnected] = useState(false)
+  const [discordUsername, setDiscordUsername] = useState('')
+  const [googleConnected, setGoogleConnected] = useState(false) // Add this line
+  const [googleEmail, setGoogleEmail] = useState('') // Add this line
   
   const telegramLoginRef = useRef<HTMLDivElement>(null)
 
@@ -112,7 +114,7 @@ export default function EditProfilePage() {
       
       const data = await res.json()
       
-      console.log('Edit page received profile data:', data); // Add this for debugging
+      console.log('Edit page received profile data:', data);
       
       setFormData({
         firstName: data.firstName || '',
@@ -137,6 +139,12 @@ export default function EditProfilePage() {
         setDiscordConnected(true)
         setDiscordUsername(data.discordUsername || '')
       }
+      
+      // Check both googleConnected and googleId fields
+      if (data.googleConnected || data.googleId) {
+        setGoogleConnected(true)
+        setGoogleEmail(data.googleEmail || '')
+      }
     } catch (err: any) {
       console.error('Profile fetch error:', err)
       setError(err.message || 'Failed to load profile')
@@ -144,7 +152,7 @@ export default function EditProfilePage() {
       setLoading(false)
     }
   }
-  
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData({
@@ -304,6 +312,57 @@ export default function EditProfilePage() {
     }
   }
 
+  // Add Google connect handler
+  const handleConnectGoogle = async () => {
+    try {
+      setError(null)
+      
+      // Call the API to get the Google auth URL
+      const response = await fetch('/api/google/auth', {
+        method: 'GET',
+        credentials: 'include'
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to get Google auth URL')
+      }
+      
+      const data = await response.json()
+      
+      if (data.authUrl) {
+        // Redirect to Google for authorization
+        window.location.href = data.authUrl
+      } else {
+        throw new Error('No authorization URL received')
+      }
+    } catch (err: any) {
+      console.error('Google connect error:', err)
+      setError(err.message || 'Failed to connect Google')
+    }
+  }
+  
+  // Add Google disconnect handler
+  const handleDisconnectGoogle = async () => {
+    try {
+      const res = await fetch('/api/google/disconnect', {
+        method: 'POST'
+      })
+      
+      if (res.ok) {
+        setGoogleConnected(false)
+        setGoogleEmail('')
+        setFormData({ ...formData, email: '' }) // Clear email from form
+        setSuccess('Google account disconnected successfully')
+      } else {
+        throw new Error('Failed to disconnect Google')
+      }
+    } catch (err: any) {
+      console.error('Google disconnect error:', err)
+      setError(err.message || 'Failed to disconnect Google')
+    }
+  }
+
   return (
     <PageWrapper>
       <div className="max-w-3xl mx-auto">
@@ -427,6 +486,43 @@ export default function EditProfilePage() {
               <h2 className="text-xl font-semibold mb-6 text-white">Connected Accounts</h2>
               
               <div className="flex flex-col gap-4">
+                {/* Google Connection */}
+                <div className="flex justify-between items-center p-4 border border-gray-700 rounded-xl">
+                  <div className="flex items-center">
+                    <SiGoogle className="text-[#4285F4] mr-3 text-xl" />
+                    <div>
+                      <h3 className="font-medium text-white">Google</h3>
+                      {googleConnected ? (
+                        <p className="text-sm text-gray-400">
+                          Connected as <span className="text-[#4285F4]">{googleEmail}</span>
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-400">
+                          Connect your Google account to sync your email
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {googleConnected ? (
+                    <Button
+                      variant="outline"
+                      onClick={handleDisconnectGoogle}
+                      size="sm"
+                    >
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={handleConnectGoogle}
+                      size="sm"
+                    >
+                      Connect
+                    </Button>
+                  )}
+                </div>
+
                 {/* Twitter Connection */}
                 <div className="flex justify-between items-center p-4 border border-gray-700 rounded-xl">
                   <div className="flex items-center">

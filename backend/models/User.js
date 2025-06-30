@@ -75,6 +75,17 @@ const UserSchema = new mongoose.Schema({
   discordAccessToken: String,
   discordRefreshToken: String,
 
+  // Google auth data
+  googleId: {
+    type: String,
+    sparse: true
+  },
+  googleEmail: String,
+  googleName: String,
+  googlePicture: String,
+  googleAccessToken: String,
+  googleRefreshToken: String,
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

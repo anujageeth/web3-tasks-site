@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
       ...data,
       twitterConnected: !!data.twitterId,
       telegramConnected: !!data.telegramId,
-      discordConnected: !!data.discordId // Add this line
+      discordConnected: !!data.discordId,
+      googleConnected: !!data.googleId // Add this line
     };
     
     console.log('Profile data being returned:', {
@@ -41,9 +42,12 @@ export async function GET(request: NextRequest) {
       telegramId: data.telegramId,
       telegramUsername: data.telegramUsername,
       telegramConnected: !!data.telegramId,
-      discordId: data.discordId, // Add this line
-      discordUsername: data.discordUsername, // Add this line
-      discordConnected: !!data.discordId // Add this line
+      discordId: data.discordId,
+      discordUsername: data.discordUsername,
+      discordConnected: !!data.discordId,
+      googleId: data.googleId, // Add this line
+      googleEmail: data.googleEmail, // Add this line
+      googleConnected: !!data.googleId // Add this line
     });
     
     return NextResponse.json(profileData);

@@ -6,7 +6,7 @@ import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { FaTwitter, FaCheckCircle } from 'react-icons/fa'
 import { FiArrowLeft, FiCalendar, FiAward, FiEdit, FiUser, FiExternalLink, FiSend } from 'react-icons/fi'
-import { SiDiscord } from 'react-icons/si' // Add this import
+import { SiDiscord, SiGoogle } from 'react-icons/si' // Add this import
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
 import { Button } from '@/components/ui/button'
@@ -30,8 +30,10 @@ interface ProfileData {
   verified: boolean;
   telegramConnected?: boolean;
   telegramUsername?: string;
-  discordConnected?: boolean; // Add this line
-  discordUsername?: string; // Add this line
+  discordConnected?: boolean;
+  discordUsername?: string;
+  googleConnected?: boolean; // Add this line
+  googleEmail?: string; // Add this line
 }
 
 interface TaskHistory {
@@ -127,8 +129,10 @@ export default function ProfilePage() {
         verified: data.verified || false,
         telegramConnected: data.telegramConnected || !!data.telegramId, // Check both fields
         telegramUsername: data.telegramUsername,
-        discordConnected: data.discordConnected || !!data.discordId, // Add this line
-        discordUsername: data.discordUsername, // Add this line
+        discordConnected: data.discordConnected || !!data.discordId,
+        discordUsername: data.discordUsername,
+        googleConnected: data.googleConnected || !!data.googleId, // Add this line
+        googleEmail: data.googleEmail, // Add this line
       })
       
       setLoading(false)
@@ -502,6 +506,19 @@ export default function ProfilePage() {
                       )}
                     </div>
                     
+                    {/*<div className="flex justify-between items-center px-3 py-2 rounded-lg bg-gray-800/30">
+                      <div className="flex items-center">
+                        <SiGoogle className="mr-2 text-light-green" />
+                        <span className="text-sm">Google</span>
+                      </div>
+                      {profileData?.googleConnected ? (
+                        <span className="text-sm text-[#4285F4]">
+                          {profileData.googleEmail}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-400">Not connected</span>
+                      )}
+                    </div>*/}
                   </div>
                   
                   {/* Twitter connect button */}
