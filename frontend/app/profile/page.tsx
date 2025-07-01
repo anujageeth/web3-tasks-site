@@ -5,13 +5,14 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
 import { FaTwitter, FaCheckCircle } from 'react-icons/fa'
-import { FiArrowLeft, FiCalendar, FiAward, FiEdit, FiUser, FiExternalLink, FiSend } from 'react-icons/fi'
-import { SiDiscord, SiGoogle } from 'react-icons/si' // Add this import
+import { FiArrowLeft, FiCalendar, FiAward, FiEdit, FiUser, FiExternalLink, FiSend, FiMessageSquare } from 'react-icons/fi'
+import { SiDiscord, SiGoogle } from 'react-icons/si'
 import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
 import { Button } from '@/components/ui/button'
 import { GlowingBorder } from '@/components/ui/glowing-border'
 import { CursorGlow } from '@/components/ui/cursor-glow'
+import { FeedbackModal } from '@/components/modals/feedback-modal' // Add this import
 import { motion } from 'framer-motion'
 
 interface ProfileData {
@@ -72,6 +73,7 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [historyType, setHistoryType] = useState<'completed' | 'created'>('completed')
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false) // Add this line
 
   // Get success/error messages from URL parameters
   useEffect(() => {
@@ -366,13 +368,24 @@ export default function ProfilePage() {
             Your Profile
           </motion.h1>
           
-          <Button
-            variant="outline"
-            animate
-            onClick={() => router.push('/profile/edit')}
-          >
-            <FiEdit className="mr-2" /> Edit Profile
-          </Button>
+          <div className="flex gap-3"> {/* Changed to flex with gap */}
+            <Button
+              variant="ghost"
+              animate
+              onClick={() => setShowFeedbackModal(true)}
+              className="inline-flex items-center border-light-green/30 text-white hover:bg-light-green/10 hover:border-light-green/50"
+            >
+              <FiMessageSquare className="mr-2" /> Feedback
+            </Button>
+            
+            <Button
+              variant="outline"
+              animate
+              onClick={() => router.push('/profile/edit')}
+            >
+              <FiEdit className="mr-2" /> Edit Profile
+            </Button>
+          </div>
         </div>
         
         {error && (
@@ -698,6 +711,12 @@ export default function ProfilePage() {
             </GlassCard>
           </motion.div>
         </div>
+        
+        {/* Feedback Modal */}
+        <FeedbackModal 
+          isOpen={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+        />
       </div>
     </PageWrapper>
   )

@@ -69,7 +69,8 @@ app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/twitter', require('./routes/twitter'));
 app.use('/api/telegram', require('./routes/telegram'));
 app.use('/api/discord', require('./routes/discord'));
-app.use('/api/google', require('./routes/google')); // Add this line
+app.use('/api/google', require('./routes/google'));
+app.use('/api/feedback', require('./routes/feedback')); // Add this line
 
 // Test route
 app.get('/api/test', (req, res) => {
