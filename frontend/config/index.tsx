@@ -28,7 +28,11 @@ export const config = wagmiAdapter.wagmiConfig
 export const appKitModal = createAppKit({
   adapters: [wagmiAdapter],
   projectId: process.env.NEXT_PUBLIC_PROJECT_ID!,
-  networks: [mainnet],
+  networks: [mainnet, arbitrum, polygon],
+  features: {
+    email: false,
+    socials: []
+  },
 });
 
 // Export SIWE from the modal for easy access

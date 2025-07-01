@@ -9,7 +9,7 @@ import { CursorGlow } from "@/components/ui/cursor-glow";
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Web3 Tasks Platform',
+  title: 'CRYPTOKEN - Web3 Tasks Platform',
   description: 'Complete tasks, earn rewards, and connect with web3 communities',
   icons: {
     icon: [

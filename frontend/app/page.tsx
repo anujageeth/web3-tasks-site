@@ -186,7 +186,7 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          Web3 Tasks Platform
+          CRYPTOKEN
         </motion.h1>
         
         <motion.p 
@@ -195,7 +195,7 @@ export default function Home() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          Complete tasks, earn rewards, and connect with web3 communities in one place
+          Web3 tasks platform to complete tasks and connect with web3 communities.
         </motion.p>
         
         <motion.div
