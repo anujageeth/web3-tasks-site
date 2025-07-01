@@ -124,74 +124,173 @@ function getDefaultTaskDescription(taskType, platform, customPlatform = '', link
   return `Complete the ${taskType} task`;
 }
 
-// Add task to an event
+// Create a task
 router.post('/', auth, async (req, res) => {
   try {
-    const { eventId, taskType, platform, description, pointsValue, linkUrl, isRequired, customPlatform } = req.body;
-    
+    const { 
+      eventId, 
+      taskType, 
+      platform, 
+      description, 
+      pointsValue, 
+      linkUrl, 
+      isRequired, 
+      customPlatform,
+      metadata // Add this
+    } = req.body;
+
+    console.log('Creating task with data:', {
+      eventId,
+      taskType,
+      platform,
+      description,
+      pointsValue,
+      linkUrl,
+      isRequired,
+      customPlatform,
+      metadata
+    });
+
+    // Validate required fields
     if (!eventId || !taskType || !platform || !pointsValue || !linkUrl) {
-      return res.status(400).json({ message: 'Please provide all required fields' });
+      return res.status(400).json({ message: 'Missing required fields' });
     }
-    
-    // Verify event exists and user is the creator
+
+    // Find the event
     const event = await Event.findById(eventId);
-    
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
-    
+
+    // Check if user is the creator of the event
     if (event.creator.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to add tasks to this event' });
+      return res.status(403).json({ message: 'Only event creator can add tasks' });
     }
-    
-    // Create the task with the proper platform name
-    const task = new Task({
-      event: eventId,
-      taskType,
-      platform, // Use the standard platform or 'other'
-      description: description || getDefaultTaskDescription(taskType, platform, customPlatform, linkUrl),
-      pointsValue: Number(pointsValue),
-      linkUrl,
-      isRequired: Boolean(isRequired)
-    });
-    
-    await task.save();
-    
-    // Update event total points
-    event.totalPoints += task.pointsValue;
-    await event.save();
-    
-    // Create UserTask entries for all participants
-    if (event.participants && event.participants.length > 0) {
-      const userTaskPromises = event.participants.map(participant => {
-        const userTask = new UserTask({
-          user: participant.user,
-          task: task._id,
-          event: event._id,
-          completed: false
-        });
-        return userTask.save();
-      });
-      
-      await Promise.all(userTaskPromises);
-    }
-    
-    res.status(201).json(task);
-  } catch (error) {
-    console.error('Add task error:', error);
-    
-    // Return specific validation errors if present
-    if (error.name === 'ValidationError') {
-      const validationErrors = {};
-      for (const field in error.errors) {
-        validationErrors[field] = error.errors[field].message;
+
+    // Generate task title based on type and platform
+    let title = '';
+    if (metadata && metadata.username) {
+      // Use stored username for display
+      switch (taskType) {
+        case 'follow':
+          title = platform === 'twitter' ? `Follow @${metadata.username} on Twitter` :
+                  platform === 'instagram' ? `Follow @${metadata.username} on Instagram` :
+                  platform === 'youtube' ? `Subscribe to @${metadata.username} on YouTube` :
+                  platform === 'facebook' ? `Follow ${metadata.username} on Facebook` :
+                  platform === 'telegram' ? `Join @${metadata.username} on Telegram` :
+                  `Follow ${metadata.username}`;
+          break;
+        case 'subscribe':
+          title = `Subscribe to @${metadata.username}`;
+          break;
+        case 'join_channel':
+          title = `Join @${metadata.username} channel`;
+          break;
+        case 'join_group':
+          title = `Join @${metadata.username} group`;
+          break;
+        case 'follow_page':
+          title = `Follow ${metadata.username} page`;
+          break;
+        default:
+          title = `${taskType.replace('_', ' ')} @${metadata.username}`;
       }
-      return res.status(400).json({ 
-        message: 'Validation error', 
-        errors: validationErrors 
-      });
+    } else {
+      // Fallback to generic titles
+      switch (taskType) {
+        case 'follow':
+          title = platform === 'twitter' ? 'Follow on Twitter' :
+                  platform === 'instagram' ? 'Follow on Instagram' :
+                  platform === 'youtube' ? 'Subscribe to channel' :
+                  platform === 'facebook' ? 'Follow page' :
+                  'Follow account';
+          break;
+        case 'like':
+          title = platform === 'twitter' ? 'Like tweet' :
+                  platform === 'instagram' ? 'Like post' :
+                  platform === 'facebook' ? 'Like post' :
+                  'Like content';
+          break;
+        case 'repost':
+          title = platform === 'twitter' ? 'Retweet' : 'Share post';
+          break;
+        case 'comment':
+          title = 'Add comment';
+          break;
+        case 'create_post':
+          title = 'Create a post';
+          break;
+        case 'join_server':
+          title = 'Join Discord server';
+          break;
+        case 'send_message':
+          title = 'Send message';
+          break;
+        case 'join_channel':
+          title = 'Join Telegram channel';
+          break;
+        case 'join_group':
+          title = 'Join Telegram group';
+          break;
+        case 'start_bot':
+          title = 'Start Telegram bot';
+          break;
+        case 'subscribe':
+          title = 'Subscribe to channel';
+          break;
+        case 'like_video':
+          title = 'Like YouTube video';
+          break;
+        case 'comment_video':
+          title = 'Comment on video';
+          break;
+        case 'follow_page':
+          title = 'Follow page';
+          break;
+        case 'like_post':
+          title = 'Like post';
+          break;
+        case 'comment_post':
+          title = 'Comment on post';
+          break;
+        case 'visit':
+          title = 'Visit website';
+          break;
+        case 'custom':
+          title = description || 'Complete custom task';
+          break;
+        default:
+          title = taskType.replace('_', ' ');
+      }
     }
-    
+
+    // Create new task
+    const task = new Task({
+      title,
+      description: description || '',
+      pointsValue,
+      taskType,
+      platform,
+      linkUrl,
+      isRequired: isRequired || false,
+      event: eventId,
+      creator: req.user._id,
+      metadata: metadata || {},
+      customPlatform: platform === 'other' ? (customPlatform || metadata?.customPlatform) : undefined
+    });
+
+    await task.save();
+
+    // Update event's total points
+    await Event.findByIdAndUpdate(eventId, {
+      $inc: { totalPoints: pointsValue }
+    });
+
+    console.log('Task created successfully:', task);
+
+    res.status(201).json({ task });
+  } catch (error) {
+    console.error('Error creating task:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

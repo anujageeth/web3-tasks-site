@@ -658,7 +658,9 @@ const handleDeleteEvent = async () => {
                             {getPlatformIcon(task.platform)}
                           </div>
                           <div>
-                            <h3 className="font-medium text-white mb-1">{task.description}</h3>
+                            <h3 className="font-medium text-white mb-1">
+                              {getTaskDisplayTitle(task)}
+                            </h3>
                             <div className="flex items-center text-xs">
                               <span className={`${getPlatformTextClass(task.platform)} mr-3`}>
                                 {getFriendlyTaskType(task.taskType)} on {getPlatformName(task.platform)}
@@ -1303,4 +1305,25 @@ const getConnectionMessage = (platform: string) => {
     default:
       return '';
   }
+};
+
+// In your event page component where tasks are rendered
+const getTaskDisplayTitle = (task: any) => {
+  // If we have stored username metadata, use it for better display
+  if (task.metadata?.username) {
+    switch (task.taskType) {
+      case 'follow':
+        return task.platform === 'twitter' ? `Follow @${task.metadata.username} on Twitter` :
+               task.platform === 'instagram' ? `Follow @${task.metadata.username} on Instagram` :
+               task.platform === 'youtube' ? `Subscribe to @${task.metadata.username}` :
+               task.platform === 'facebook' ? `Follow ${task.metadata.username}` :
+               task.platform === 'telegram' ? `Join @${task.metadata.username}` :
+               task.title;
+      default:
+        return task.title;
+    }
+  }
+  
+  // Fall back to stored title
+  return task.title;
 };

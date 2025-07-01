@@ -133,6 +133,11 @@ export default function AddTaskPage() {
     if (!isFollowTask) {
       setUsername('');
     }
+    
+    // Clear linkUrl when switching to username input tasks
+    if (isFollowTask) {
+      setFormData(prev => ({ ...prev, linkUrl: '' }));
+    }
   }, [formData.platform, formData.taskType]);
   
   useEffect(() => {
@@ -201,7 +206,11 @@ export default function AddTaskPage() {
     
     switch(formData.platform) {
       case 'twitter':
-        return `https://x.com/${cleanUsername}`;
+        if (formData.taskType === 'follow') {
+          return `https://x.com/intent/follow?screen_name=${cleanUsername}`;
+        }
+        // For other Twitter tasks that don't use username, fall back to linkUrl
+        return formData.linkUrl;
       case 'instagram':
         return `https://instagram.com/${cleanUsername}`;
       case 'youtube':
@@ -215,6 +224,50 @@ export default function AddTaskPage() {
     }
   };
 
+  // Function to extract tweet ID from Twitter/X URLs and generate intent links
+  const generateTwitterIntentUrl = (url: string, taskType: string) => {
+    try {
+      const urlObj = new URL(url);
+      
+      // Extract tweet ID from various Twitter URL formats
+      // Examples:
+      // https://twitter.com/username/status/1234567890
+      // https://x.com/username/status/1234567890
+      // https://mobile.twitter.com/username/status/1234567890
+      
+      const pathParts = urlObj.pathname.split('/').filter(Boolean);
+      let tweetId = '';
+      
+      // Find the tweet ID (usually after 'status')
+      const statusIndex = pathParts.findIndex(part => part === 'status');
+      if (statusIndex !== -1 && statusIndex + 1 < pathParts.length) {
+        tweetId = pathParts[statusIndex + 1];
+        
+        // Remove any query parameters from tweet ID
+        tweetId = tweetId.split('?')[0];
+      }
+      
+      if (!tweetId) {
+        throw new Error('Could not extract tweet ID from URL');
+      }
+      
+      // Generate intent URLs based on task type
+      switch (taskType) {
+        case 'like':
+          return `https://x.com/intent/like?tweet_id=${tweetId}`;
+        case 'repost':
+          return `https://x.com/intent/retweet?tweet_id=${tweetId}`;
+        case 'comment':
+          return `https://x.com/intent/tweet?in_reply_to=${tweetId}`;
+        default:
+          return url; // Return original URL for other task types
+      }
+    } catch (error) {
+      console.error('Error generating Twitter intent URL:', error);
+      return url; // Return original URL if parsing fails
+    }
+  };
+  
   // Form validation
   const validateForm = () => {
     // Reset error
@@ -251,6 +304,23 @@ export default function AddTaskPage() {
         setError('Please enter a valid URL (including http:// or https://)')
         return false
       }
+      
+      // Special validation for Twitter intent tasks
+      if (formData.platform === 'twitter' && ['like', 'repost', 'comment'].includes(formData.taskType)) {
+        try {
+          const url = new URL(formData.linkUrl);
+          const isTwitterUrl = url.hostname.includes('twitter.com') || url.hostname.includes('x.com');
+          const hasStatus = url.pathname.includes('/status/');
+          
+          if (!isTwitterUrl || !hasStatus) {
+            setError('Please provide a valid Twitter/X post URL (e.g., https://x.com/username/status/1234567890)')
+            return false
+          }
+        } catch (e) {
+          setError('Please provide a valid Twitter/X post URL')
+          return false
+        }
+      }
     }
     
     // Validate custom platform if needed
@@ -266,9 +336,19 @@ export default function AddTaskPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    let finalLinkUrl = formData.linkUrl;
+    let displayUsername = '';
+    
     // Set URL from username if applicable
     if (showUsernameInput && username) {
-      formData.linkUrl = generateUrlFromUsername();
+      finalLinkUrl = generateUrlFromUsername();
+      displayUsername = username.trim().replace(/^@/, ''); // Store clean username
+    }
+    // Handle Twitter intent URLs for like/repost tasks
+    else if (formData.platform === 'twitter' && 
+             ['like', 'repost', 'comment'].includes(formData.taskType) && 
+             formData.linkUrl) {
+      finalLinkUrl = generateTwitterIntentUrl(formData.linkUrl, formData.taskType);
     }
     
     // Validate form
@@ -287,7 +367,13 @@ export default function AddTaskPage() {
         body: JSON.stringify({
           eventId: id,
           ...formData,
-          // Include custom platform if applicable
+          linkUrl: finalLinkUrl,
+          // Store additional metadata for display purposes
+          metadata: {
+            ...(displayUsername && { username: displayUsername }),
+            ...(formData.platform === 'other' && { customPlatform })
+          },
+          // Include custom platform if applicable (keep for backward compatibility)
           ...(formData.platform === 'other' ? { customPlatform } : {})
         })
       })
