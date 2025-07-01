@@ -122,7 +122,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .glass-input:focus {
-  border-color: rgba(74, 222, 128, 0.4);
+  border-color: rgba(74, 222, 128, 0.355);
   outline: none;
   box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.15);
 }
