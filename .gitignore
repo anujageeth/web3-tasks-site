@@ -1,1 +1,33 @@
+# Backend environment file
+backend/.env
+backend/.env.*
+
+# Frontend environment files  
+frontend/.env*
+frontend/.env.local
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids/
+*.pid
+
+# Build outputs
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+backend/.env
+backend/.env
 backend/.env
