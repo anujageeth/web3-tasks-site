@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
+    const backendUrl = process.env.BACKEND_URL || 'https://cryptoken-tasks-backend-335e4e542fb7.herokuapp.com';
+    
+    console.log('Forwarding request to:', `${backendUrl}/api/auth/user`);
+    console.log('Request cookies:', request.headers.get('cookie'));
     
     // Forward the request to the backend
     const response = await fetch(`${backendUrl}/api/auth/user`, {
@@ -14,6 +17,8 @@ export async function GET(request: NextRequest) {
       credentials: 'include',
     });
 
+    console.log('Backend response status:', response.status);
+    
     const data = await response.json();
 
     if (!response.ok) {
