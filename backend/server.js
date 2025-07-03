@@ -25,23 +25,20 @@ if (process.env.HEROKU_APP_NAME) {
   allowedOrigins.push(`https://${process.env.HEROKU_APP_NAME}.herokuapp.com`);
 }
 
-app.use(cors({
+// CORS configuration
+const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    const allowedOrigins = [
+      'https://cryptoken-tasks.vercel.app',
+      'https://web3-tasks-site-aq9su0nie-anuja-geeths-projects.vercel.app', // Add this deployment URL
+      'http://localhost:3000',
+      'http://localhost:3001'
+    ];
+    
+    // Allow requests with no origin (mobile apps, etc.)
     if (!origin) return callback(null, true);
     
-    // Check if origin is in allowed list or matches pattern
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (typeof allowedOrigin === 'string') {
-        return allowedOrigin === origin;
-      }
-      if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
-      }
-      return false;
-    });
-    
-    if (isAllowed) {
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
@@ -50,8 +47,11 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie']
+};
+
+app.use(cors(corsOptions));
 
 // Middleware
 app.use(express.json());
