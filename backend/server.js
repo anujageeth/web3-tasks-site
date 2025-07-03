@@ -30,7 +30,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       'https://cryptoken-tasks.vercel.app',
-      'https://web3-tasks-site-aq9su0nie-anuja-geeths-projects.vercel.app', // Add this deployment URL
+      'https://web3-tasks-site-pnekbznop-anuja-geeths-projects.vercel.app/', // Add this deployment URL
       'http://localhost:3000',
       'http://localhost:3001'
     ];

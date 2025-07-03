@@ -1,35 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const token = cookieStore.get('token')?.value;
-    
-    if (!token) {
-      return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
-    }
-    
-    // Forward to backend with cookie
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
+    
+    // Forward the request to the backend
     const response = await fetch(`${backendUrl}/api/events/user/created`, {
+      method: 'GET',
       headers: {
-        'Cookie': `token=${token}`
+        'Content-Type': 'application/json',
+        'Cookie': request.headers.get('cookie') || '',
       },
-      credentials: 'include'
+      credentials: 'include',
     });
+
+    const data = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
-        { message: 'Failed to get created events' }, 
+        { message: data.message || 'Failed to fetch created events' },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json({ message: 'Server error' }, { status: 500 });
+    console.error('Error forwarding created events request:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

@@ -1,103 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const token = cookieStore.get('token')?.value;
-    
-    if (!token) {
-      return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
-    }
-
-    // Forward to backend with cookie
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
+    
+    // Forward the request to the backend
     const response = await fetch(`${backendUrl}/api/profile`, {
+      method: 'GET',
       headers: {
-        'Cookie': `token=${token}`
+        'Content-Type': 'application/json',
+        'Cookie': request.headers.get('cookie') || '',
       },
-      credentials: 'include'
+      credentials: 'include',
     });
-
-    if (!response.ok) {
-      console.error('Failed to get profile data from backend');
-      return NextResponse.json({ message: 'Failed to load profile' }, { status: response.status });
-    }
 
     const data = await response.json();
-    
-    // Map the backend response to include the connection status
-    const profileData = {
-      ...data,
-      twitterConnected: !!data.twitterId,
-      telegramConnected: !!data.telegramId,
-      discordConnected: !!data.discordId,
-      googleConnected: !!data.googleId // Add this line
-    };
-    
-    console.log('Profile data being returned:', {
-      twitterId: data.twitterId,
-      twitterUsername: data.twitterUsername,
-      twitterConnected: !!data.twitterId,
-      telegramId: data.telegramId,
-      telegramUsername: data.telegramUsername,
-      telegramConnected: !!data.telegramId,
-      discordId: data.discordId,
-      discordUsername: data.discordUsername,
-      discordConnected: !!data.discordId,
-      googleId: data.googleId, // Add this line
-      googleEmail: data.googleEmail, // Add this line
-      googleConnected: !!data.googleId // Add this line
-    });
-    
-    return NextResponse.json(profileData);
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { message: data.message || 'Failed to fetch profile' },
+        { status: response.status }
+      );
+    }
+
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json({ message: 'Server error' }, { status: 500 });
+    console.error('Error forwarding profile request:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const token = cookieStore.get('token')?.value;
-    
-    if (!token) {
-      return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
-    }
-    
-    // Get profile data from request
-    const profileData = await request.json();
-    
-    // Forward to backend with cookie
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
+    const body = await request.json();
+    
+    // Forward the request to the backend
     const response = await fetch(`${backendUrl}/api/profile`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Cookie': `token=${token}`
+        'Cookie': request.headers.get('cookie') || '',
       },
-      body: JSON.stringify(profileData),
-      credentials: 'include'
+      body: JSON.stringify(body),
+      credentials: 'include',
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      // Try to get error message from response
-      let errorMessage = 'Failed to update profile';
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch (e) {
-        console.error('Could not parse error response:', e);
-      }
-      
-      return NextResponse.json({ message: errorMessage }, { status: response.status });
+      return NextResponse.json(
+        { message: data.message || 'Failed to update profile' },
+        { status: response.status }
+      );
     }
 
-    const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json({ message: 'Server error' }, { status: 500 });
+    console.error('Error forwarding profile update request:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

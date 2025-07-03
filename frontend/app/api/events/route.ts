@@ -3,46 +3,36 @@ import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get query parameters
-    const url = new URL(request.url);
-    const page = url.searchParams.get('page') || '1';
-    const limit = url.searchParams.get('limit') || '10';
-    const search = url.searchParams.get('search') || '';
-    
-    // Forward to backend with search parameter
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
+    const { searchParams } = new URL(request.url);
+    const queryString = searchParams.toString();
     
-    // Construct the query string
-    const queryParams = new URLSearchParams({
-      page,
-      limit,
-      ...(search ? { search } : {})
-    }).toString();
-    
-    const response = await fetch(
-      `${backendUrl}/api/events?${queryParams}`,
-      { credentials: 'include' }
-    );
+    // Forward the request to the backend
+    const response = await fetch(`${backendUrl}/api/events${queryString ? `?${queryString}` : ''}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': request.headers.get('cookie') || '',
+      },
+      credentials: 'include',
+    });
+
+    const data = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
-        { message: 'Failed to get events' }, 
+        { message: data.message || 'Failed to fetch events' },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
-
-    // Add cache headers to response
-    const res = NextResponse.json(data);
-    
-    // Shorter cache time for search results
-    const maxAge = search ? 30 : 60;  // 30 seconds for search, 60 for normal listings
-    res.headers.set('Cache-Control', `public, max-age=${maxAge}, stale-while-revalidate=300`);
-    return res;
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json({ message: 'Server error' }, { status: 500 });
+    console.error('Error forwarding events request:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
