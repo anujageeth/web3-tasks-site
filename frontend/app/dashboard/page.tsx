@@ -9,11 +9,11 @@ import { PageWrapper } from '@/components/ui/page-wrapper'
 import { GlassCard } from '@/components/ui/glass-card'
 import { GlowingBorder } from '@/components/ui/glowing-border'
 import { motion } from 'framer-motion'
-import { FiExternalLink, FiPlus, FiUser, FiCalendar, FiUsers, FiTrendingUp, FiStar, FiActivity, FiTag, FiUserPlus } from 'react-icons/fi'
+import { FiExternalLink, FiPlus, FiUser, FiCalendar, FiUsers, FiTrendingUp, FiStar, FiActivity, FiTag } from 'react-icons/fi'
 import { FaCheckCircle } from 'react-icons/fa'
 import { CursorGlow } from '@/components/ui/cursor-glow'
 import { InfiniteMovingCards } from '@/components/ui/infinite-moving-cards'
-import { authAPI, eventsAPI, referralsAPI } from '@/lib/api';
+import { authAPI, eventsAPI } from '@/lib/api';
 
 interface Event {
   _id: string;
@@ -47,10 +47,6 @@ export default function Dashboard() {
   const [eventsLoading, setEventsLoading] = useState(true)
   const [latestLoading, setLatestLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [referralStats, setReferralStats] = useState({
-    referralsCount: 0,
-    referralPoints: 0
-  });
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -61,17 +57,15 @@ export default function Dashboard() {
         setAuthChecked(true);
         
         // Load events and referral data
-        const [latestEvents, createdEvents, joinedEvents, referralStats] = await Promise.all([
+        const [latestEvents, createdEvents, joinedEvents] = await Promise.all([
           eventsAPI.getLatest(1, 3).catch(() => ({ events: [] })),
           eventsAPI.getUserCreated().catch(() => []),
           eventsAPI.getUserJoined().catch(() => []),
-          referralsAPI.getStats().catch(() => ({ referralsCount: 0, referralPoints: 0 }))
         ]);
         
         setLatestEvents(latestEvents.events || []);
         setCreatedEvents(createdEvents || []);
         setJoinedEvents(joinedEvents || []);
-        setReferralStats(referralStats || { referralsCount: 0, referralPoints: 0 });
         
         setLatestLoading(false);
         setEventsLoading(false);
@@ -124,38 +118,6 @@ export default function Dashboard() {
     // Force a complete page reload to clear all state and cookies
     window.location.href = "/?logout=true";
   }
-
-  // Render a referral stats component for the dashboard
-  const ReferralStatsCard = () => {
-    return (
-      <div className="bg-black/30 rounded-xl border border-gray-700/30 p-4 hover:border-light-green/20 transition-all">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-medium flex items-center">
-            <FiUserPlus className="mr-2 text-light-green" /> 
-            Referrals
-          </h3>
-          <Link href="/profile" className="text-xs text-light-green hover:underline">
-            View details
-          </Link>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4 mt-2">
-          <div className="text-center p-2 bg-black/20 rounded-lg">
-            <p className="text-2xl font-bold text-light-green">
-              {referralStats.referralsCount}
-            </p>
-            <p className="text-xs text-gray-400">People Referred</p>
-          </div>
-          <div className="text-center p-2 bg-black/20 rounded-lg">
-            <p className="text-2xl font-bold text-light-green">
-              {referralStats.referralPoints}
-            </p>
-            <p className="text-xs text-gray-400">Points Earned</p>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   if (loading) {
     return (
@@ -343,18 +305,6 @@ export default function Dashboard() {
             </div>
           </GlassCard>
         </GlowingBorder>
-        
-        {/* Referral Stats Card - add below user profile */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mb-8"
-        >
-          <GlassCard>
-            <ReferralStatsCard />
-          </GlassCard>
-        </motion.div>
         
         {/* Latest Events Section */}
         <motion.div

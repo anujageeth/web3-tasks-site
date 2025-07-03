@@ -123,11 +123,3 @@ export const tasksAPI = {
   
   verifyTwitterTask: (data: any) => apiClient.post('/api/twitter/verify-task', data),
 };
-
-export const referralsAPI = {
-  getStats: () => apiClient.get('/api/referrals/stats'),
-  
-  getReferrals: () => apiClient.get('/api/referrals'),
-  
-  getReferralCode: () => apiClient.get('/api/referrals/code'),
-};
