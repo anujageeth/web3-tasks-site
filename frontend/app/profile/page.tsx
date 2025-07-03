@@ -164,26 +164,32 @@ export default function ProfilePage() {
   // Fetch task history
   const fetchTaskHistory = async () => {
     try {
-      const res = await fetch('/api/tasks/history')
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+      const res = await fetch(`${backendUrl}/api/tasks/history`, {
+        credentials: 'include',
+      });
       if (res.ok) {
-        const data = await res.json()
-        setTaskHistory(data)
+        const data = await res.json();
+        setTaskHistory(data);
       }
     } catch (err) {
-      console.error('Error fetching task history:', err)
+      console.error('Error fetching task history:', err);
     }
   }
   
   // Fetch created events
   const fetchCreatedEvents = async () => {
     try {
-      const res = await fetch('/api/events/user/created')
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+      const res = await fetch(`${backendUrl}/api/events/user/created`, {
+        credentials: 'include',
+      });
       if (res.ok) {
-        const data = await res.json()
-        setCreatedEvents(data)
+        const data = await res.json();
+        setCreatedEvents(data);
       }
     } catch (err) {
-      console.error('Error fetching created events:', err)
+      console.error('Error fetching created events:', err);
     }
   }
 
@@ -193,44 +199,49 @@ export default function ProfilePage() {
     setConnectingTwitter(true);
     
     try {
-      const res = await fetch('/api/twitter/auth')
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+      const res = await fetch(`${backendUrl}/api/twitter/auth`, {
+        credentials: 'include',
+      });
       
       if (!res.ok) {
-        const errorData = await res.json()
-        throw new Error(errorData.message || 'Failed to initiate Twitter authentication')
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to initiate Twitter authentication');
       }
       
-      const { authUrl } = await res.json()
+      const { authUrl } = await res.json();
       
       if (!authUrl) {
-        throw new Error('No Twitter authentication URL returned')
+        throw new Error('No Twitter authentication URL returned');
       }
       
       // Redirect to Twitter auth page
-      window.location.href = authUrl
+      window.location.href = authUrl;
     } catch (err: any) {
-      console.error('Error connecting Twitter:', err)
-      setError(`Twitter connection failed: ${err.message}`)
-      setConnectingTwitter(false)
+      console.error('Error connecting Twitter:', err);
+      setError(`Twitter connection failed: ${err.message}`);
+      setConnectingTwitter(false);
     }
   }
   
   // Disconnect Twitter account
   const handleDisconnectTwitter = async () => {
-    setDisconnectingTwitter(true)
-    setError(null)
+    setDisconnectingTwitter(true);
+    setError(null);
     
     try {
-      const res = await fetch('/api/twitter/disconnect', {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+      const res = await fetch(`${backendUrl}/api/twitter/disconnect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        }
-      })
+        },
+        credentials: 'include',
+      });
       
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.message || 'Failed to disconnect Twitter account')
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to disconnect Twitter account');
       }
       
       // Update profile data
@@ -238,14 +249,14 @@ export default function ProfilePage() {
         ...prev,
         twitterConnected: false,
         twitterUsername: undefined
-      } : null)
+      } : null);
       
-      setSuccess('Twitter account disconnected successfully')
+      setSuccess('Twitter account disconnected successfully');
     } catch (err: any) {
-      console.error('Error disconnecting Twitter:', err)
-      setError(err.message || 'Failed to disconnect Twitter account')
+      console.error('Error disconnecting Twitter:', err);
+      setError(err.message || 'Failed to disconnect Twitter account');
     } finally {
-      setDisconnectingTwitter(false)
+      setDisconnectingTwitter(false);
     }
   }
   
@@ -347,6 +358,7 @@ export default function ProfilePage() {
                         <div className="h-4 w-48 bg-gray-800/30 rounded-md mt-3 animate-pulse"></div>
                       </div>
                     ))}
+
                   </div>
                 </div>
               </div>

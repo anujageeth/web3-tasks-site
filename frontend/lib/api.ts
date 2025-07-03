@@ -99,7 +99,7 @@ export const profileAPI = {
 };
 
 export const eventsAPI = {
-  getLatest: () => apiClient.get('/api/events/latest'),
+  getLatest: (page = 1, limit = 3) => apiClient.get(`/api/events?page=${page}&limit=${limit}`),
   
   getUserCreated: () => apiClient.get('/api/events/user/created'),
   
@@ -108,6 +108,12 @@ export const eventsAPI = {
   getById: (id: string) => apiClient.get(`/api/events/${id}`),
   
   join: (id: string) => apiClient.post(`/api/events/${id}/join`),
+  
+  create: (data: any) => apiClient.post('/api/events', data),
+  
+  update: (id: string, data: any) => apiClient.put(`/api/events/${id}`, data),
+  
+  delete: (id: string) => apiClient.delete(`/api/events/${id}`),
 };
 
 export const tasksAPI = {
@@ -116,4 +122,12 @@ export const tasksAPI = {
   getUserTasks: (eventId: string) => apiClient.get(`/api/tasks/user/event/${eventId}`),
   
   verifyTwitterTask: (data: any) => apiClient.post('/api/twitter/verify-task', data),
+};
+
+export const referralsAPI = {
+  getStats: () => apiClient.get('/api/referrals/stats'),
+  
+  getReferrals: () => apiClient.get('/api/referrals'),
+  
+  getReferralCode: () => apiClient.get('/api/referrals/code'),
 };

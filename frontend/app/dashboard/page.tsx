@@ -13,7 +13,7 @@ import { FiExternalLink, FiPlus, FiUser, FiCalendar, FiUsers, FiTrendingUp, FiSt
 import { FaCheckCircle } from 'react-icons/fa'
 import { CursorGlow } from '@/components/ui/cursor-glow'
 import { InfiniteMovingCards } from '@/components/ui/infinite-moving-cards'
-import { authAPI, eventsAPI } from '@/lib/api';
+import { authAPI, eventsAPI, referralsAPI } from '@/lib/api';
 
 interface Event {
   _id: string;
@@ -60,16 +60,18 @@ export default function Dashboard() {
         setUserData(userData);
         setAuthChecked(true);
         
-        // Load events data
-        const [latestEvents, createdEvents, joinedEvents] = await Promise.all([
-          eventsAPI.getLatest().catch(() => ({ events: [] })),
+        // Load events and referral data
+        const [latestEvents, createdEvents, joinedEvents, referralStats] = await Promise.all([
+          eventsAPI.getLatest(1, 3).catch(() => ({ events: [] })),
           eventsAPI.getUserCreated().catch(() => []),
           eventsAPI.getUserJoined().catch(() => []),
+          referralsAPI.getStats().catch(() => ({ referralsCount: 0, referralPoints: 0 }))
         ]);
         
         setLatestEvents(latestEvents.events || []);
         setCreatedEvents(createdEvents || []);
         setJoinedEvents(joinedEvents || []);
+        setReferralStats(referralStats || { referralsCount: 0, referralPoints: 0 });
         
         setLatestLoading(false);
         setEventsLoading(false);
@@ -86,15 +88,9 @@ export default function Dashboard() {
 
   const handleSignOut = async () => {
     try {
-      // First call the logout API to clear server-side session
-      const response = await fetch('/api/auth/logout', { 
-        method: 'POST',
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        console.log('Server logout successful');
-      }
+      // Use authAPI instead of direct fetch
+      await authAPI.logout();
+      console.log('Server logout successful');
     } catch (err) {
       console.error('Error logging out from server:', err);
     }
