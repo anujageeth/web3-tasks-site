@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
 import { FiArrowLeft, FiSave, FiUser, FiMail, FiTwitter, FiSend } from 'react-icons/fi'
 import { SiDiscord, SiGoogle } from 'react-icons/si' // Add SiGoogle import
+import { profileAPI } from '@/lib/api';
 
 // Add this type declaration for TypeScript to recognize the global function
 declare global {
@@ -105,14 +106,9 @@ export default function EditProfilePage() {
   }, [loading, telegramConnected])
   
   const fetchProfileData = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await fetch('/api/profile')
-      if (!res.ok) {
-        throw new Error('Failed to load profile data')
-      }
-      
-      const data = await res.json()
+      const data = await profileAPI.get();
       
       console.log('Edit page received profile data:', data);
       
@@ -120,36 +116,33 @@ export default function EditProfilePage() {
         firstName: data.firstName || '',
         lastName: data.lastName || '',
         email: data.email || '',
-      })
+      });
       
-      // Check both twitterConnected and twitterId fields
+      // Update connection states
       if (data.twitterConnected || data.twitterId) {
-        setTwitterConnected(true)
-        setTwitterUsername(data.twitterUsername || '')
+        setTwitterConnected(true);
+        setTwitterUsername(data.twitterUsername || '');
       }
       
-      // Check both telegramConnected and telegramId fields
       if (data.telegramConnected || data.telegramId) {
-        setTelegramConnected(true)
-        setTelegramUsername(data.telegramUsername || '')
+        setTelegramConnected(true);
+        setTelegramUsername(data.telegramUsername || '');
       }
       
-      // Check both discordConnected and discordId fields
       if (data.discordConnected || data.discordId) {
-        setDiscordConnected(true)
-        setDiscordUsername(data.discordUsername || '')
+        setDiscordConnected(true);
+        setDiscordUsername(data.discordUsername || '');
       }
       
-      // Check both googleConnected and googleId fields
       if (data.googleConnected || data.googleId) {
-        setGoogleConnected(true)
-        setGoogleEmail(data.googleEmail || '')
+        setGoogleConnected(true);
+        setGoogleEmail(data.googleEmail || '');
       }
     } catch (err: any) {
-      console.error('Profile fetch error:', err)
-      setError(err.message || 'Failed to load profile')
+      console.error('Profile fetch error:', err);
+      setError(err.message || 'Failed to load profile');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 

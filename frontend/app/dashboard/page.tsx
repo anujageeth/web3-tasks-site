@@ -13,6 +13,7 @@ import { FiExternalLink, FiPlus, FiUser, FiCalendar, FiUsers, FiTrendingUp, FiSt
 import { FaCheckCircle } from 'react-icons/fa'
 import { CursorGlow } from '@/components/ui/cursor-glow'
 import { InfiniteMovingCards } from '@/components/ui/infinite-moving-cards'
+import { authAPI, eventsAPI } from '@/lib/api';
 
 interface Event {
   _id: string;
@@ -54,62 +55,28 @@ export default function Dashboard() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/auth/user', {
-          credentials: 'include'
-        });
-        
-        if (!res.ok) {
-          // User is not authenticated with the backend
-          if (isConnected) {
-            // They have a wallet connected but not authenticated
-            router.push('/'); // Send to home to sign message
-          } else {
-            // Not connected at all
-            router.push('/');
-          }
-          return;
-        }
-        
-        // User is authenticated, fetch their data
-        const userData = await res.json();
+        const userData = await authAPI.getUser();
+        console.log('User authenticated:', userData);
         setUserData(userData);
         setAuthChecked(true);
         
-        // Now fetch other data in parallel
-        Promise.all([
-          fetch('/api/events?page=1&limit=3'),
-          fetch('/api/events/user/created'),
-          fetch('/api/events/user/joined'),
-          fetch('/api/referrals/stats')
-        ])
-        .then(async ([latestRes, createdRes, joinedRes, referralRes]) => {
-          // Process responses in parallel
-          const [latestData, createdData, joinedData, referralData] = await Promise.all([
-            latestRes.ok ? latestRes.json() : {events: []},
-            createdRes.ok ? createdRes.json() : [],
-            joinedRes.ok ? joinedRes.json() : [],
-            referralRes.ok ? referralRes.json() : {referralsCount: 0, referralPoints: 0}
-          ]);
-          
-          // Update state with all data
-          setLatestEvents(latestData.events || []);
-          setCreatedEvents(createdData || []);
-          setJoinedEvents(joinedData || []);
-          setReferralStats({
-            referralsCount: referralData.referralsCount || 0,
-            referralPoints: referralData.referralPoints || 0
-          });
-          
-          // Set loading states
-          setLatestLoading(false);
-          setEventsLoading(false);
-          setLoading(false);
-        });
+        // Load events data
+        const [latestEvents, createdEvents, joinedEvents] = await Promise.all([
+          eventsAPI.getLatest().catch(() => ({ events: [] })),
+          eventsAPI.getUserCreated().catch(() => []),
+          eventsAPI.getUserJoined().catch(() => []),
+        ]);
         
+        setLatestEvents(latestEvents.events || []);
+        setCreatedEvents(createdEvents || []);
+        setJoinedEvents(joinedEvents || []);
+        
+        setLatestLoading(false);
+        setEventsLoading(false);
+        setLoading(false);
       } catch (err) {
         console.error('Error checking authentication:', err);
-        setError('Failed to authenticate');
-        setAuthChecked(true);
+        setError('Authentication failed');
         setLoading(false);
       }
     };

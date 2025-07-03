@@ -10,6 +10,7 @@ import { GlobeDemo } from "@/components/sections/globe-demo"
 import { appKitModal } from "@/config"
 import { createWalletClient, custom } from 'viem'
 import { mainnet } from 'viem/chains'
+import { authAPI } from '@/lib/api';
 
 export default function Home() {
   const { isConnected, address, connector } = useAccount()
@@ -124,35 +125,21 @@ export default function Home() {
           }
           
           // Send SIWE verification to backend
-          const response = await fetch('/api/auth/verify', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              address,
-              message,
-              signature,
-            }),
-            credentials: 'include',
-          });
-          
-          if (response.ok) {
-            console.log('Authentication successful, redirecting to dashboard...');
-            // Wait a moment for cookies to be set before redirecting
-            setTimeout(() => {
-              // Force a hard navigation to make sure cookies are processed
-              window.location.href = '/dashboard';
-            }, 100);
-          } else {
-            let errorMessage = `Server error (${response.status})`;
-            try {
-              const errorData = await response.json();
-              errorMessage = errorData.message || errorMessage;
-            } catch (e) {
-              console.error('Failed to parse error response:', e);
+          const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+          try {
+            const data = await authAPI.verify(address, message, signature);
+            
+            if (data.success !== false) {
+              console.log('Authentication successful, redirecting to dashboard...');
+              setTimeout(() => {
+                window.location.href = '/dashboard';
+              }, 100);
+            } else {
+              setError(data.message || 'Authentication failed');
             }
-            setError(errorMessage);
+          } catch (err) {
+            console.error('Authentication error:', err);
+            setError(err instanceof Error ? err.message : 'Authentication failed');
           }
         } catch (err) {
           console.error('Signing error:', err);

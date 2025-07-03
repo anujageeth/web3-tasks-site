@@ -352,7 +352,10 @@ const handleDeleteEvent = async () => {
     // Fetch user profile to check Twitter status
     const fetchProfile = async () => {
       try {
-        const res = await fetch('/api/profile');
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+        const res = await fetch(`${backendUrl}/api/profile`, {
+          credentials: 'include',
+        });
         if (res.ok) {
           const data = await res.json();
           setUserProfile(data);

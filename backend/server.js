@@ -7,16 +7,23 @@ require('dotenv').config();
 
 const app = express();
 
-// Improved CORS configuration
+// Improved CORS configuration for Heroku
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
 const allowedOrigins = [
   frontendUrl,
+  'https://cryptoken-tasks.vercel.app', // Your Vercel frontend
   'https://api.twitter.com',
-  'https://web3-tasks-site.vercel.app', // Your main Vercel domain
+  'https://discord.com',
+  'https://accounts.google.com',
+  'https://oauth.telegram.org',
   'http://localhost:3000', // Local Next.js dev
   'http://localhost:3001', // Local frontend
-  'https://4282-124-43-67-64.ngrok-free.app', // Example Ngrok URL
 ];
+
+// Add Heroku app URL to allowed origins
+if (process.env.HEROKU_APP_NAME) {
+  allowedOrigins.push(`https://${process.env.HEROKU_APP_NAME}.herokuapp.com`);
+}
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -50,16 +57,56 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+// Health check endpoint for Heroku
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Log requests for debugging
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path} - Has token: ${req.cookies.token ? 'Yes' : 'No'}`);
   next();
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// MongoDB connection with improved error handling
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 45000,
+      family: 4
+    });
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error('❌ MongoDB connection failed:', error.message);
+    if (process.env.NODE_ENV === 'production') {
+      console.log('Retrying MongoDB connection in 10 seconds...');
+      setTimeout(connectDB, 10000);
+    } else {
+      process.exit(1);
+    }
+  }
+};
+
+connectDB();
+
+// Handle MongoDB connection events
+mongoose.connection.on('connected', () => {
+  console.log('✅ MongoDB connected successfully');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ MongoDB disconnected');
+});
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -70,16 +117,25 @@ app.use('/api/twitter', require('./routes/twitter'));
 app.use('/api/telegram', require('./routes/telegram'));
 app.use('/api/discord', require('./routes/discord'));
 app.use('/api/google', require('./routes/google'));
-app.use('/api/feedback', require('./routes/feedback')); // Add this line
+app.use('/api/feedback', require('./routes/feedback'));
 
 // Test route
 app.get('/api/test', (req, res) => {
-  res.json({ message: 'API is working' });
+  res.json({ 
+    message: 'API is working',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 // Default route
 app.get('/', (req, res) => {
-  res.send('API is running');
+  res.json({
+    message: 'CRYPTOKEN Tasks API is running',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Catch-all for unhandled routes
@@ -90,49 +146,28 @@ app.use('/*', (req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
-  res.status(500).json({ message: 'Internal server error', error: err.message });
+  res.status(500).json({ 
+    message: 'Internal server error', 
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+  });
 });
 
-// Try multiple ports if the default one is in use
+// Use Heroku's assigned port or fallback to 5001
+const PORT = process.env.PORT || 5001;
+
 const server = http.createServer(app);
 
-// Define ports to try (original port and some alternatives)
-const PORT = parseInt(process.env.PORT || '5001');
-const ALTERNATIVE_PORTS = [5000, 5002, 5003, 5004, 5005];
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Frontend URL: ${frontendUrl}`);
+});
 
-// Function to try starting the server on different ports
-function tryPort(port) {
-  server.listen(port);
-  
-  server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-      console.log(`Port ${port} is in use, trying another port...`);
-      
-      // Try the next port if available
-      if (ALTERNATIVE_PORTS.length > 0) {
-        const nextPort = ALTERNATIVE_PORTS.shift();
-        tryPort(nextPort);
-      } else {
-        console.error('All ports are in use. Please close some applications and try again.');
-        process.exit(1);
-      }
-    } else {
-      console.error('Server error:', error);
-      process.exit(1);
-    }
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+    mongoose.connection.close();
   });
-  
-  server.on('listening', () => {
-    const addr = server.address();
-    console.log(`Server running on port ${addr.port}`);
-    
-    // If we're using an alternative port, update the environment variable
-    if (port !== PORT) {
-      console.log(`Note: Using alternative port ${port} instead of configured port ${PORT}`);
-      console.log(`Update your frontend's BACKEND_URL to use this port.`);
-    }
-  });
-}
-
-// Start trying ports
-tryPort(PORT);
+});

@@ -105,7 +105,10 @@ export default function ProfilePage() {
   // Load profile data
   const fetchProfileData = async () => {
     try {
-      const res = await fetch('/api/profile')
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+      const res = await fetch(`${backendUrl}/api/profile`, {
+        credentials: 'include',
+      });
       
       if (!res.ok) {
         throw new Error(`Failed to load profile: ${res.status}`)

@@ -35,7 +35,10 @@ export default function CreateEventPage() {
     const checkUserVerification = async () => {
       setIsLoading(true)
       try {
-        const res = await fetch('/api/profile')
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+        const res = await fetch(`${backendUrl}/api/profile`, {
+          credentials: 'include',
+        });
         if (res.ok) {
           const userData = await res.json()
           setIsVerified(userData.verified === true)
